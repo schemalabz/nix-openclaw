@@ -9,6 +9,22 @@ jobs:
       - uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-      - run: |
+      - name: Deploy
+        run: |
+          # nixos-rebuild exits non-zero if any unit fails, including
+          # pre-existing stale preview instances we don't control.
+          # We verify the deploy via the health endpoint instead.
           ssh -o StrictHostKeyChecking=accept-new root@159.89.98.26 \
-            "nixos-rebuild switch --flake github:schemalabz/nix-openclaw#preview"
+            "nixos-rebuild switch --flake github:schemalabz/nix-openclaw#preview" \
+            || true
+      - name: Verify
+        run: |
+          sleep 3
+          HEALTH=$(curl -sf http://159.89.98.26:9101/health)
+          echo "$HEALTH" | python3 -m json.tool
+
+          DEPLOYED=$(echo "$HEALTH" | python3 -c "import json,sys; print(json.load(sys.stdin)['revision'])")
+          if [ "$DEPLOYED" != "${{ github.sha }}" ]; then
+            echo "::error::Expected revision ${{ github.sha }} but server reports $DEPLOYED"
+            exit 1
+          fi
