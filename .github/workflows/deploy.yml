@@ -15,7 +15,7 @@ jobs:
           # pre-existing stale preview instances we don't control.
           # We verify the deploy via the health endpoint instead.
           ssh -o StrictHostKeyChecking=accept-new root@159.89.98.26 \
-            "nixos-rebuild switch --flake github:schemalabz/nix-openclaw#preview" \
+            "nixos-rebuild switch --refresh --flake github:schemalabz/nix-openclaw#preview" \
             || true
       - name: Verify
         run: |
