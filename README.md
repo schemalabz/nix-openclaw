@@ -1,13 +1,11 @@
 # nix-openclaw
 
-NixOS module for running an [OpenClaw](https://github.com/openclaw/openclaw) agent gateway as a system-level systemd service. Built for the [Schema Labs](https://github.com/schemalabz) / [OpenCouncil](https://github.com/schemalabz/opencouncil) project.
+NixOS-based development platform that combines PR preview deployments, AI agent orchestration, and ephemeral dev workspaces on a single server. Built for the [Schema Labs](https://github.com/schemalabz) / [OpenCouncil](https://github.com/schemalabz/opencouncil) project.
 
-The module wraps the `openclaw-gateway` binary and manages:
-
-- Systemd service with security hardening
-- Workspace files (agent identity, skills) — tracked in git, symlinked read-only
-- `openclaw.json` generation from Nix, preserving runtime-mutable fields
-- Helper scripts (`openclaw-agent-status`, `openclaw-agent-logs`, `openclaw-agent-restart`)
+- **PR Preview Deployments** — Automatic per-PR preview environments with Caddy reverse proxy and wildcard TLS (`pr-N.preview.opencouncil.gr`, `pr-N.tasks.opencouncil.gr`). GitHub Actions builds, Cachix caches, and the server deploys each PR as an isolated service instance.
+- **OpenClaw Agent** — Discord bot gateway as a systemd service, with workspace files (identity, skills) managed via Nix and symlinked read-only
+- **Dev Workspaces** — Ephemeral NixOS containers (systemd-nspawn) with full dev toolchains, headless Claude Code agents, and SSH access
+- **Agent Orchestration Skills** — Skills that teach the bot to plan tasks, execute implementation plans, and create PRs — all through the workspace containers
 
 ## Prerequisites
 
@@ -189,6 +187,201 @@ State in the data directory is preserved — only the service binary and Nix-man
 **Nix manages:** `workspace/` symlinks, `openclaw.json` generation, systemd service, helper scripts.
 
 **Gateway manages:** `state/`, `.openclaw/`, session files, runtime config fields.
+
+## Dev Workspaces
+
+Ephemeral development environments via NixOS containers (systemd-nspawn). Each workspace is an isolated container with the full dev toolchain — git, node, nix, gh, claude code — connected via SSH.
+
+### Setup
+
+Add to your NixOS config:
+
+```nix
+# flake.nix inputs
+claude-code-nix.url = "github:sadjow/claude-code-nix";
+
+# In nixosModules
+nixosModules.dev-workspaces = import ./workspace.nix {
+  claude-code = claude-code-nix.packages.${system}.default;
+};
+```
+
+```nix
+# configuration.nix
+services.dev-workspaces = {
+  enable = true;
+  slots = 4;  # Number of concurrent workspaces
+};
+
+networking.nat.externalInterface = "ens3";  # Your host's external interface
+```
+
+### Create the workspace secrets file
+
+```bash
+mkdir -p /var/lib/workspaces
+cat > /var/lib/workspaces/.env << 'EOF'
+ANTHROPIC_API_KEY=sk-ant-...
+GITHUB_TOKEN=ghp_...
+GH_TOKEN=ghp_...
+EOF
+chmod 600 /var/lib/workspaces/.env
+```
+
+`ANTHROPIC_API_KEY` is required for `workspace-run` (headless Claude agent sessions). `GITHUB_TOKEN`/`GH_TOKEN` enable `gh` CLI inside containers (PR creation, etc.).
+
+### Usage
+
+```bash
+# Create a workspace (fetches SSH keys from GitHub)
+workspace-create --repo opencouncil-tasks --github-user kouloumos
+
+# SSH into it
+workspace-ssh 1
+# or remotely: ssh -p 2201 dev@<server-ip>
+
+# Inside the container
+cd repo && nix develop
+npm test
+
+# Run a headless Claude agent
+workspace-run --slot 1 --prompt "Fix the failing tests" --max-turns 10
+
+# Monitor the agent
+workspace-status --slot 1           # summary + last 30 lines
+workspace-status --slot 1 --full    # parsed messages and tool use
+workspace-status --slot 1 -f        # follow live output
+
+# Cleanup
+workspace-destroy 1
+
+# View past sessions
+workspace-sessions --last 5
+workspace-session <session-id>
+```
+
+### Workspace Scripts Reference
+
+| Script | Description |
+|--------|-------------|
+| `workspace-create` | Create workspace from repo + GitHub SSH keys |
+| `workspace-destroy` | Archive session data and destroy workspace |
+| `workspace-list` | Show all slots with status |
+| `workspace-ssh` | SSH into a workspace container |
+| `workspace-run` | Start headless Claude agent in container |
+| `workspace-status` | Monitor running agent (status, logs, follow) |
+| `workspace-sessions` | List past sessions |
+| `workspace-session` | Show full session details + git activity |
+
+### `workspace-run` Options
+
+| Option | Description |
+|--------|-------------|
+| `--slot N` | Workspace slot number (required) |
+| `--prompt "..."` | Task prompt for Claude (required) |
+| `--max-turns N` | Limit agentic turns |
+| `--max-budget N` | Cost cap in USD |
+| `--resume <id>` | Resume a previous Claude session |
+| `--allowed-tools` | Restrict tool access |
+
+### Architecture
+
+- **Ephemeral rootfs** — container system resets on stop, only `/workspace` persists
+- **Shared /nix** — bind-mounted from host, zero package duplication
+- **Git worktrees** — bare repo cloned once, subsequent workspaces are instant
+- **Session tracking** — git activity, container journal, and Claude session data archived on destroy
+- **Private networking** — each container on its own subnet, SSH via port forwarding (2201-2204)
+- **Memory capped** at 1GB per container
+
+### File Layout
+
+```
+/var/lib/workspaces/
+├── .env                      # Secrets (ANTHROPIC_API_KEY, GITHUB_TOKEN)
+├── repos/                    # Shared bare repos
+│   └── opencouncil-tasks.git
+├── ws-1/                     # Active workspace slot 1
+│   ├── .session-id
+│   ├── .ssh/authorized_keys
+│   └── repo/                 # Git worktree
+└── sessions/                 # Archived sessions
+    └── 1-20260222T1430/
+        ├── session.json      # Metadata (slot, repo, user, timing, agent runs)
+        ├── git-summary.txt   # Commits and diff stats
+        ├── journal.log       # Container journal export
+        ├── run-*.jsonl       # Claude stream-json output logs
+        └── claude-data/      # Claude session data (if present)
+```
+
+## Agent Orchestration
+
+The bot uses two skills to orchestrate development work through the workspace containers:
+
+### plan-task
+
+Triggered when someone asks to plan work on a task or GitHub issue. The bot:
+
+1. Creates a Discord thread for discussion
+2. Fetches the GitHub issue (or creates one)
+3. Spins up a workspace container
+4. Runs a planning agent that reads the codebase and produces a numbered implementation plan
+5. Posts the plan for review — humans give feedback or approve
+6. On approval, posts the final plan to the GitHub issue
+
+### execute-plan
+
+Takes an approved plan and implements it. The bot:
+
+1. Runs a worker agent in the workspace with the approved plan
+2. The agent implements each step as an atomic commit
+3. Runs tests, creates a PR
+4. Posts the PR link and run stats (cost, turns, duration) to the thread and GitHub issue
+5. Destroys the workspace
+
+### Full flow
+
+```
+Human: "Work on issue #42"
+  → plan-task: thread, workspace, planning agent, discussion
+  → Human: "approved"
+  → execute-plan: worker agent, atomic commits, PR
+  → Summary: PR link, cost, duration
+```
+
+Skills are defined in `workspace/skills/{plan-task,execute-plan}/SKILL.md`.
+
+## PR Preview Deployments
+
+The server hosts per-PR preview environments for both the main app and the tasks API. When a PR is opened against `main`, GitHub Actions builds it, pushes to Cachix, and deploys a preview instance on the server.
+
+### How it works
+
+1. PR opened → GitHub Actions builds the Nix package and pushes to Cachix
+2. Action SSHs into the server and runs the preview-create script
+3. Caddy automatically provisions TLS and reverse-proxies to the instance
+4. PR comment is posted with the preview URL
+5. On PR close/merge, the preview is destroyed
+
+### URLs
+
+- **opencouncil** (main app): `https://pr-N.preview.opencouncil.gr` (base port 3000+N)
+- **opencouncil-tasks** (API): `https://pr-N.tasks.opencouncil.gr` (base port 4000+N)
+
+### Management
+
+```bash
+# List active previews
+opencouncil-tasks-preview-list
+
+# View logs for PR #123
+opencouncil-tasks-preview-logs 123
+
+# Manual create/destroy
+sudo opencouncil-tasks-preview-create <PR_NUM> <NIX_STORE_PATH>
+sudo opencouncil-tasks-preview-destroy <PR_NUM>
+```
+
+The preview modules themselves are defined in the [opencouncil](https://github.com/schemalabz/opencouncil) and [opencouncil-tasks](https://github.com/schemalabz/opencouncil-tasks) repos and imported as flake inputs. This repo enables them and provides the host-level configuration (Caddy, ports, env files).
 
 ## Note on nixpkgs
 

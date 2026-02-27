@@ -14,6 +14,7 @@
 - **Direct**: `nixos-rebuild switch --flake .#preview --target-host root@159.89.98.26 --build-host root@159.89.98.26`
 - **Health check**: `make health` or `curl http://159.89.98.26:9101/health` — shows deployed git revision, NixOS version, and service statuses
 - After deploy, verify with: `make health` or `ssh root@159.89.98.26 openclaw-agent-status`
+- **Before committing/pushing**, always offer to run `make dry-run` to catch build errors early — this builds the full system on the server without switching, and is much faster than waiting for CI to fail
 
 ## Context System
 
