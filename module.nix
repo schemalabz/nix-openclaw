@@ -99,6 +99,14 @@ let
       done
     fi
 
+    # Point .openclaw/workspace → workspace so the gateway reads Nix-managed files.
+    # The gateway uses $HOME/.openclaw/workspace/ internally, regardless of
+    # agents.defaults.workspace in openclaw.json.
+    if [ -d "$DATA_DIR/.openclaw/workspace" ] && [ ! -L "$DATA_DIR/.openclaw/workspace" ]; then
+      rm -rf "$DATA_DIR/.openclaw/workspace"
+    fi
+    ln -sfn "$DATA_DIR/workspace" "$DATA_DIR/.openclaw/workspace"
+
     # Copy workspace files into docs/reference/templates/ as a workaround
     # for the nix-openclaw bug where the gateway package is missing these.
     # See: https://gist.github.com/gudnuf/8fe65ca0e49087105cb86543dc8f0799
@@ -244,7 +252,7 @@ in {
       description = "OpenClaw Agent Gateway";
       after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
-      path = cfg.extraTools;
+      path = cfg.extraTools ++ [ "/run/current-system/sw" ];
 
       serviceConfig = {
         Type = "simple";
