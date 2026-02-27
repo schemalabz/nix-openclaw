@@ -32,6 +32,14 @@ in
     cachix.enable = true;
   };
 
+  # Ephemeral dev workspaces (NixOS containers)
+  services.dev-workspaces = {
+    enable = true;
+    slots = 4;
+  };
+
+  networking.nat.externalInterface = "ens3";
+
   # OpenClaw agent (Discord bot + future capabilities)
   services.openclaw-agent = {
     enable = true;

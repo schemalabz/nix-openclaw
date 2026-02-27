@@ -29,6 +29,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             )
             services[svc] = r.stdout.strip()
 
+        # Workspace containers — count active instances
+        r = subprocess.run(
+            ["systemctl", "list-units", "--type=service",
+             "--state=active", "--no-pager", "--no-legend",
+             "container@workspace-*"],
+            capture_output=True, text=True,
+        )
+        lines = [l for l in r.stdout.strip().splitlines() if l.strip()]
+        services["dev-workspaces"] = len(lines)
+
         # Templated services — count active instances
         for prefix in ["opencouncil-preview", "opencouncil-tasks-preview"]:
             r = subprocess.run(

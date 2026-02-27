@@ -8,19 +8,25 @@
     # Do NOT use follows for nixpkgs — their pin must match their binary cache.
     nix-openclaw.url = "github:openclaw/nix-openclaw";
 
+    # Claude Code CLI for dev workspaces
+    claude-code-nix.url = "github:sadjow/claude-code-nix";
+
     # Other services sharing this server
     opencouncil.url = "github:schemalabz/opencouncil/main";
     opencouncil-tasks.url = "github:schemalabz/opencouncil-tasks/main";
   };
 
-  outputs = { self, nixpkgs, nix-openclaw, opencouncil, opencouncil-tasks }:
+  outputs = { self, nixpkgs, nix-openclaw, claude-code-nix, opencouncil, opencouncil-tasks }:
   let
     system = "x86_64-linux";
   in {
-    # --- Reusable module (importable by other flakes) ---
+    # --- Reusable modules (importable by other flakes) ---
     nixosModules.default = import ./module.nix {
       inherit nix-openclaw;
       workspaceDir = ./workspace;
+    };
+    nixosModules.dev-workspaces = import ./workspace.nix {
+      claude-code = claude-code-nix.packages.${system}.default;
     };
 
     # Re-export the gateway package for direct use
@@ -36,6 +42,7 @@
         opencouncil.nixosModules.opencouncil-preview
         opencouncil-tasks.nixosModules.opencouncil-tasks-preview
         self.nixosModules.default
+        self.nixosModules.dev-workspaces
         ./hosts/preview/configuration.nix
       ];
     };
