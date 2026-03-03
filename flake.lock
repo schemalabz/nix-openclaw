@@ -96,6 +96,22 @@
     },
     "nixpkgs-unstable": {
       "locked": {
+        "lastModified": 1771207753,
+        "narHash": "sha256-b9uG8yN50DRQ6A7JdZBfzq718ryYrlmGgqkRm9OOwCE=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "d1c15b7d5806069da59e819999d70e1cec0760bf",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs-unstable_2": {
+      "locked": {
         "lastModified": 1769740369,
         "narHash": "sha256-xKPyJoMoXfXpDM5DFDZDsi9PHArf2k5BJjvReYXoFpM=",
         "owner": "NixOS",
@@ -176,14 +192,15 @@
     },
     "opencouncil": {
       "inputs": {
-        "nixpkgs": "nixpkgs_4"
+        "nixpkgs": "nixpkgs_4",
+        "nixpkgs-unstable": "nixpkgs-unstable"
       },
       "locked": {
-        "lastModified": 1771348788,
-        "narHash": "sha256-4pgMsNA2DfzNU3kLPiXRHcaojcRYdfcKsWzEEFBETfI=",
+        "lastModified": 1772547773,
+        "narHash": "sha256-pnNEbCl3M5eGvxFWmPqCorLQUgPCPKC03NahcBRYi7w=",
         "owner": "schemalabz",
         "repo": "opencouncil",
-        "rev": "0974b0c1890d38ffc1c911c8c4fc38e27ec2b0b6",
+        "rev": "bcd5689d9e7d0ce965935ff5d659db76c3640299",
         "type": "github"
       },
       "original": {
@@ -196,7 +213,7 @@
     "opencouncil-tasks": {
       "inputs": {
         "nixpkgs": "nixpkgs_5",
-        "nixpkgs-unstable": "nixpkgs-unstable"
+        "nixpkgs-unstable": "nixpkgs-unstable_2"
       },
       "locked": {
         "lastModified": 1771255309,

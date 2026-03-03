@@ -17,6 +17,10 @@ in
     basePort = 3000;
     envFile = "/var/lib/opencouncil-previews/.env";
     cachix.enable = true;
+    tasksPreview = {
+      domain = "tasks.opencouncil.gr";
+      envFile = "/var/lib/opencouncil-tasks-previews/.env";
+    };
   };
 
   # OpenCouncil Tasks API previews (port 4000+N)
