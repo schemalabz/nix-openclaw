@@ -21,3 +21,7 @@
 - Read `CONTEXT.md` and files in `.context/` at the start of every session to understand prior work
 - Use the `.context/` convention (dated files with YAML frontmatter) to preserve session context
 - Propose improvements to how we keep context when you see opportunities for better efficiency, but always discuss before changing the system
+
+## Git Commits
+
+- Do NOT add `Co-Authored-By` trailers to commits

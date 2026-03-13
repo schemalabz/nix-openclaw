@@ -71,6 +71,15 @@ let
   setupScript = pkgs.writeShellScript "openclaw-agent-setup" ''
     set -euo pipefail
 
+    ${optionalString (cfg.envFile != null) ''
+      if [ ! -f "${cfg.envFile}" ]; then
+        echo "FATAL: envFile '${cfg.envFile}' does not exist." >&2
+        echo "The service cannot start without its secrets." >&2
+        echo "Create it with: DISCORD_BOT_TOKEN, ANTHROPIC_API_KEY, GITHUB_TOKEN, OPENCLAW_GATEWAY_TOKEN" >&2
+        exit 1
+      fi
+    ''}
+
     DATA_DIR="${cfg.dataDir}"
 
     # Create directories

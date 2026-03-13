@@ -20,14 +20,31 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
         services = {}
+        healthy = True
 
-        # Single services
+        # Single services — detect crash-looping via ActiveState+SubState
         for svc in ["openclaw-agent"]:
             r = subprocess.run(
-                ["systemctl", "is-active", svc],
+                ["systemctl", "show", svc,
+                 "--property=ActiveState,SubState"],
                 capture_output=True, text=True,
             )
-            services[svc] = r.stdout.strip()
+            props = dict(
+                line.split("=", 1)
+                for line in r.stdout.strip().splitlines()
+                if "=" in line
+            )
+            active = props.get("ActiveState", "unknown")
+            sub = props.get("SubState", "unknown")
+
+            if active == "active" and sub == "running":
+                services[svc] = "active"
+            elif active == "activating" and sub == "auto-restart":
+                services[svc] = "crash-looping"
+                healthy = False
+            else:
+                services[svc] = f"{active}/{sub}"
+                healthy = False
 
         # Workspace containers — count active instances
         r = subprocess.run(
@@ -61,12 +78,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             ver = {}
 
         body = json.dumps({
+            "ok": healthy,
             "revision": ver.get("configurationRevision", "unknown"),
             "nixos_version": ver.get("nixosVersion", "unknown"),
             "services": services,
         }, indent=2)
 
-        self.send_response(200)
+        self.send_response(200 if healthy else 503)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(body.encode())
