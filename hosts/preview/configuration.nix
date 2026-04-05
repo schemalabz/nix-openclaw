@@ -69,6 +69,14 @@ in
 
   networking.firewall.allowedTCPPorts = [ healthPort ];
 
+  # Trust the garnix binary cache used by nix-openclaw.
+  # Without this, the server tries to build openclaw-gateway from source
+  # and OOMs on the CUDA/llama-cpp npm deps (~500MB downloads).
+  nix.settings = {
+    extra-substituters = [ "https://cache.garnix.io" ];
+    extra-trusted-public-keys = [ "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g=" ];
+  };
+
   # 4GB swap file — the VPS only has 3.8GB RAM, and from-source builds of
   # openclaw-gateway (CUDA deps) need more. This lets `nix flake update`
   # work without worrying about binary cache timing.
