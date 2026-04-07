@@ -12,7 +12,7 @@ NixOS-based development platform that combines PR preview deployments, AI agent 
 - A NixOS machine (tested on 24.11)
 - Discord bot token ([Developer Portal](https://discord.com/developers/applications))
 - Anthropic API key
-- GitHub token (for `gh` CLI in agent skills)
+- GitHub App (for `gh` CLI in agent skills — see [GitHub App setup](#3-set-up-github-app-for-repository-access))
 
 ## Setup
 
@@ -61,29 +61,83 @@ NixOS-based development platform that combines PR preview deployments, AI agent 
 4. Permissions: Send Messages, Send Messages in Threads, Create Public Threads, Add Reactions, Read Message History, Embed Links
 5. Invite the bot to your server with the generated URL
 
-### 3. Create the secrets file on the server
+### 3. Set up GitHub App for repository access
+
+The agent uses a GitHub App (not a personal token) so it has its own identity and doesn't depend on any individual's account. Installation tokens are refreshed automatically every 45 minutes.
+
+#### Create the App
+
+1. Go to **Settings → Developer settings → GitHub Apps → New GitHub App**
+2. Fill in:
+   - **Name**: e.g. "OpenCouncil Bot" (must be globally unique)
+   - **Homepage URL**: your project URL (required field, anything works)
+   - **Webhook**: uncheck "Active" (not needed)
+3. Set **Repository permissions**:
+   - **Contents**: Read
+   - **Issues**: Read and Write
+   - **Pull requests**: Read and Write
+   - **Metadata**: Read (automatically selected)
+4. Under "Where can this GitHub App be installed?", select **Only on this account**
+5. Click **Create GitHub App**
+6. Note the **App ID** shown on the settings page
+
+#### Generate a private key
+
+1. On the App settings page, scroll to **Private keys**
+2. Click **Generate a private key** — a `.pem` file downloads
+3. Deploy it to the server:
+   ```bash
+   scp your-app.pem root@<server>:/var/lib/openclaw-agent/github-app.pem
+   ssh root@<server> "chmod 600 /var/lib/openclaw-agent/github-app.pem"
+   ```
+
+#### Install the App on your org/repos
+
+1. Go to the App's page → **Install App**
+2. Select your org and choose which repos to grant access to
+3. After installing, note the **Installation ID** from the URL:
+   `https://github.com/settings/installations/<INSTALLATION_ID>`
+
+#### Configure the NixOS module
+
+```nix
+services.openclaw-agent = {
+  # ...
+  githubApp = {
+    enable = true;
+    appId = "<your App ID>";
+    installationId = "<your Installation ID>";
+    privateKeyFile = "/var/lib/openclaw-agent/github-app.pem";
+  };
+};
+```
+
+When `githubApp` is enabled:
+- A systemd timer refreshes the token every 45 minutes
+- The `gh` CLI wrapper reads the latest token on each invocation (no service restarts)
+- Workspace containers get fresh tokens automatically at creation time
+
+### 4. Create the secrets file on the server
 
 ```bash
 mkdir -p /var/lib/openclaw-agent
 cat > /var/lib/openclaw-agent/.env << 'EOF'
 DISCORD_BOT_TOKEN=your_discord_bot_token
 ANTHROPIC_API_KEY=your_anthropic_api_key
-GITHUB_TOKEN=your_github_pat
-GH_TOKEN=your_github_pat
 OPENCLAW_GATEWAY_TOKEN=any_random_uuid
 EOF
 chmod 600 /var/lib/openclaw-agent/.env
 ```
 
-`GH_TOKEN` is the same value as `GITHUB_TOKEN` — OpenClaw uses one, the `gh` CLI uses the other.
+> **Note:** `GITHUB_TOKEN` / `GH_TOKEN` are not needed in the secrets file when `githubApp` is enabled — they are managed automatically by the token refresh timer.
 
-### 4. Deploy
+### 5. Deploy
 
 ```bash
 nixos-rebuild switch --flake .#myhost
 ```
 
-### 5. Verify
+### 6. Verify
 
 ```bash
 openclaw-agent-status        # systemctl status
@@ -146,6 +200,10 @@ services.openclaw-agent.extraConfig = {
 | `maxConcurrent` | int | `4` | Max concurrent agent runs |
 | `maxConcurrentSubagents` | int | `8` | Max concurrent subagent runs |
 | `extraTools` | list | `[ gh ]` | Extra packages in gateway PATH |
+| `githubApp.enable` | bool | `false` | Enable GitHub App token auth (replaces static PAT) |
+| `githubApp.appId` | string | `""` | GitHub App ID |
+| `githubApp.installationId` | string | `""` | GitHub App Installation ID |
+| `githubApp.privateKeyFile` | path | `.../github-app.pem` | Path to App private key PEM file |
 | `discord.enable` | bool | `true` | Enable Discord channel |
 | `discord.guilds` | attrs | `{ "*" = { requireMention = true; }; }` | Guild config |
 | `extraConfig` | attrs | `{}` | Extra config merged into openclaw.json |
@@ -222,13 +280,11 @@ networking.nat.externalInterface = "ens3";  # Your host's external interface
 mkdir -p /var/lib/workspaces
 cat > /var/lib/workspaces/.env << 'EOF'
 ANTHROPIC_API_KEY=sk-ant-...
-GITHUB_TOKEN=ghp_...
-GH_TOKEN=ghp_...
 EOF
 chmod 600 /var/lib/workspaces/.env
 ```
 
-`ANTHROPIC_API_KEY` is required for `workspace-run` (headless Claude agent sessions). `GITHUB_TOKEN`/`GH_TOKEN` enable `gh` CLI inside containers (PR creation, etc.).
+`ANTHROPIC_API_KEY` is required for `workspace-run` (headless Claude agent sessions). When `githubApp` is enabled on the agent, `GITHUB_TOKEN`/`GH_TOKEN` are injected into this file automatically by the token refresh timer.
 
 ### Usage
 

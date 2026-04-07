@@ -6,6 +6,7 @@
 # - openclaw.json config generation
 # - docs/reference/templates/ workaround for nix-openclaw bug
 # - Helper scripts for status, logs, restart
+# - GitHub App token management (via github-app.nix sub-module)
 #
 # Runtime-mutable state (sessions, device identity, cron) lives in dataDir
 # and is NOT managed by Nix. Workspace files are read-only symlinks from
@@ -75,7 +76,7 @@ let
       if [ ! -f "${cfg.envFile}" ]; then
         echo "FATAL: envFile '${cfg.envFile}' does not exist." >&2
         echo "The service cannot start without its secrets." >&2
-        echo "Create it with: DISCORD_BOT_TOKEN, ANTHROPIC_API_KEY, GITHUB_TOKEN, OPENCLAW_GATEWAY_TOKEN" >&2
+        echo "Create it with: DISCORD_BOT_TOKEN, ANTHROPIC_API_KEY, OPENCLAW_GATEWAY_TOKEN${optionalString (!cfg.githubApp.enable) ", GITHUB_TOKEN"}" >&2
         exit 1
       fi
     ''}
@@ -144,6 +145,8 @@ let
     chmod 600 "$DATA_DIR/openclaw.json"
   '';
 in {
+  imports = [ ./github-app.nix ];
+
   options.services.openclaw-agent = {
     enable = mkEnableOption "OpenClaw agent gateway";
 
@@ -185,8 +188,9 @@ in {
         Path to environment file with secrets. Expected variables:
         - DISCORD_BOT_TOKEN
         - ANTHROPIC_API_KEY
-        - GITHUB_TOKEN (or GH_TOKEN)
         - OPENCLAW_GATEWAY_TOKEN
+        - GITHUB_TOKEN / GH_TOKEN (only if githubApp is NOT enabled;
+          when githubApp.enable = true, tokens are managed automatically)
         The file should be chmod 600, owned by the service user.
       '';
     };
@@ -211,7 +215,8 @@ in {
 
     extraTools = mkOption {
       type = types.listOf types.package;
-      default = [ pkgs.gh ];
+      default = if cfg.githubApp.enable then [ cfg.githubApp._ghWrapper ] else [ pkgs.gh ];
+      defaultText = literalExpression "[ pkgs.gh ] (or gh wrapper when githubApp is enabled)";
       description = "Extra packages to add to the gateway's PATH (e.g., gh, git).";
     };
 
@@ -259,7 +264,9 @@ in {
 
     systemd.services.openclaw-agent = {
       description = "OpenClaw Agent Gateway";
-      after = [ "network.target" ];
+      after = [ "network.target" ]
+        ++ optional cfg.githubApp.enable "openclaw-github-token-refresh.service";
+      wants = optionals cfg.githubApp.enable [ "openclaw-github-token-refresh.service" ];
       wantedBy = [ "multi-user.target" ];
       path = cfg.extraTools ++ [ "/run/current-system/sw" ];
 

@@ -51,6 +51,13 @@ in
     extraConfig = {
       agents.defaults.heartbeat.every = "0m";
     };
+    # GitHub App for repository access (auto-refreshing tokens, no PAT needed)
+    githubApp = {
+      enable = true;
+      appId = "3304452";
+      installationId = "122106827";
+      privateKeyFile = "/var/lib/opencouncil-discord-bot/github-app.pem";
+    };
   };
 
   # Health check endpoint — GET http://<ip>:9101/health
