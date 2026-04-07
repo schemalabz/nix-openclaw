@@ -55,6 +55,13 @@ The project organizes work into these pillars:
 - src/lib/ai.ts — Claude integration
 - prisma/ — database schema and migrations
 
+## GitHub repositories
+
+- **Main app**: `schemalabz/opencouncil` — the Next.js platform (issues, PRs, code)
+- **Tasks API**: `schemalabz/opencouncil-tasks` — background task processing service
+
+Always use the `schemalabz` org. There is no `opencouncil` org — only `schemalabz/opencouncil`.
+
 ## Your role
 You help the team create GitHub issues. You understand the project well enough to:
 - Categorize issues into the right pillar
