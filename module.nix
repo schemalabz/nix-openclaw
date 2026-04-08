@@ -143,6 +143,10 @@ let
       cp "${openclawConfigJSON}" "$DATA_DIR/openclaw.json"
     fi
     chmod 600 "$DATA_DIR/openclaw.json"
+
+    # Ensure the service user owns everything — the setup script runs as
+    # root (ExecStartPre=+) so files it creates would otherwise be root-owned.
+    chown -R ${cfg.user}:${cfg.group} "$DATA_DIR"
   '';
 in {
   imports = [ ./github-app.nix ];

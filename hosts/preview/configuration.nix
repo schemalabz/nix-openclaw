@@ -45,8 +45,6 @@ in
     enable = true;
     dataDir = "/var/lib/opencouncil-discord-bot";
     envFile = "/var/lib/opencouncil-discord-bot/.env";
-    user = "root";
-    group = "root";
     # Disable heartbeats to save tokens when idle
     extraConfig = {
       agents.defaults.heartbeat.every = "0m";
