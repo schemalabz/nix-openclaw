@@ -299,8 +299,9 @@ in {
       };
     };
 
-    # Helper scripts
-    environment.systemPackages = [
+    # Helper scripts + gh wrapper (must be in systemPackages so it lands in
+    # /run/current-system/sw/bin, which the agent's spawned shells can find)
+    environment.systemPackages = cfg.extraTools ++ [
       (pkgs.writeShellScriptBin "openclaw-agent-status" ''
         exec systemctl status openclaw-agent "$@"
       '')
