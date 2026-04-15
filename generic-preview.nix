@@ -25,6 +25,8 @@
 #     # ── Optional hooks ────────────────────────────────────────────────
 #     mkCreateHook      : pkgs -> { prNum, prDir, storePath, port, cfg } -> string
 #                         Runs after store-path fetch + symlink, before service start.
+#     mkCreateSummary   : pkgs -> { prNum, prDir, port, cfg } -> string
+#                         Extra lines printed after the "Preview created" summary.
 #     mkDestroyHook     : pkgs -> { prNum, prDir, port, cfg } -> string
 #                         Runs after service stop, before rm -rf.
 #
@@ -59,6 +61,7 @@ let
 
   hasCreateHook = pc ? mkCreateHook;
   hasDestroyHook = pc ? mkDestroyHook;
+  hasCreateSummary = pc ? mkCreateSummary;
   hasCreateExtraArgs = pc ? createExtraArgs;
   hasExtraOptions = pc ? extraOptions;
   hasExtraConfig = pc ? extraConfig;
@@ -143,7 +146,6 @@ let
     echo "Creating preview for PR #$pr_num on port $port"
     echo "  App: $store_path"
 
-    # App-specific create hook (DB setup, linking, etc.)
     ${optionalString hasCreateHook
       (pc.mkCreateHook pkgs { prNum = "$pr_num"; prDir = "$pr_dir"; storePath = "$store_path"; port = "$port"; inherit cfg; })}
 
@@ -178,6 +180,8 @@ let
     echo "  Local: http://localhost:$port"
     echo "  Public: https://pr-$pr_num.${cfg.previewDomain}"
     echo "  Service: ${serviceName}@$port"
+    ${optionalString hasCreateSummary
+      (pc.mkCreateSummary pkgs { prNum = "$pr_num"; prDir = "$pr_dir"; port = "$port"; inherit cfg; })}
   '';
 
   # Destroy script
@@ -198,7 +202,6 @@ let
     # Stop app service
     systemctl stop "${serviceName}@$port" || true
 
-    # App-specific teardown hook (stop DB, clean up, etc.)
     ${optionalString hasDestroyHook
       (pc.mkDestroyHook pkgs { prNum = "$pr_num"; prDir = "$pr_dir"; port = "$port"; inherit cfg; })}
 
