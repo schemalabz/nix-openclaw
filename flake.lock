@@ -149,22 +149,6 @@
     },
     "nixpkgs-unstable_2": {
       "locked": {
-        "lastModified": 1771207753,
-        "narHash": "sha256-b9uG8yN50DRQ6A7JdZBfzq718ryYrlmGgqkRm9OOwCE=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "d1c15b7d5806069da59e819999d70e1cec0760bf",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixpkgs-unstable",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs-unstable_2": {
-      "locked": {
         "lastModified": 1769740369,
         "narHash": "sha256-xKPyJoMoXfXpDM5DFDZDsi9PHArf2k5BJjvReYXoFpM=",
         "owner": "NixOS",
@@ -265,11 +249,11 @@
         "nixpkgs-unstable": "nixpkgs-unstable"
       },
       "locked": {
-        "lastModified": 1776159074,
-        "narHash": "sha256-SlX5vFpxNi5LiSKiTvqh50JjbY3vV8Jp3tt/dlsMix0=",
-        "owner": "schemalabz",
+        "lastModified": 1776271880,
+        "narHash": "sha256-3T1rk6iO/r7f6L6DpGFG2fD9Cc/a6aZZkeeOgz45gv4=",
+        "owner": "kouloumos",
         "repo": "opencouncil",
-        "rev": "0ac66668f60cc5a3967fe27de73f7be2c461e086",
+        "rev": "6efd2b64877562cd9bf6d4208e0ce3b799e4d86c",
         "type": "github"
       },
       "original": {
@@ -285,11 +269,11 @@
         "nixpkgs-unstable": "nixpkgs-unstable_2"
       },
       "locked": {
-        "lastModified": 1771255309,
-        "narHash": "sha256-ko+SO9ns9IHAdwfhYgWBqyez8yjA6o0Eo3JNFZX3uhA=",
-        "owner": "schemalabz",
+        "lastModified": 1776271837,
+        "narHash": "sha256-Mh/l46mBjKMSKIRbpR824qQTRT1nRrMKghDl8anfeJQ=",
+        "owner": "kouloumos",
         "repo": "opencouncil-tasks",
-        "rev": "56e95c238e7193a3553a82ffa1da7fde243e075c",
+        "rev": "5bfe9ec6e094b3ee8cf66c799c77578e9d8b2dab",
         "type": "github"
       },
       "original": {
