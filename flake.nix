@@ -39,13 +39,35 @@
       modules = [
         { system.configurationRevision = self.rev or self.dirtyRev or "unknown"; }
         (nixpkgs + "/nixos/modules/virtualisation/digital-ocean-config.nix")
-        opencouncil.nixosModules.opencouncil-preview
-        opencouncil-tasks.nixosModules.opencouncil-tasks-preview
+        (import ./generic-preview.nix opencouncil.preview)
+        (import ./generic-preview.nix opencouncil-tasks.preview)
         self.nixosModules.default
         self.nixosModules.dev-workspaces
         ./hosts/preview/configuration.nix
       ];
     };
+
+    # Evaluation check: catches type errors, missing options, broken references
+    # without needing access to the server. Run: nix flake check
+    checks.${system}.preview-module-eval = let
+      eval = nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [
+          (import ./generic-preview.nix opencouncil.preview)
+          (import ./generic-preview.nix opencouncil-tasks.preview)
+          {
+            services.opencouncil-preview.enable = true;
+            services.opencouncil-tasks-preview = {
+              enable = true;
+              createUser = false;  # shared user created by opencouncil-preview
+            };
+            # Minimal config to satisfy NixOS module eval
+            fileSystems."/" = { device = "/dev/sda1"; fsType = "ext4"; };
+            boot.loader.grub.device = "/dev/sda";
+          }
+        ];
+      };
+    in eval.config.system.build.toplevel;
 
     # Formatter for `nix fmt`
     formatter.${system} = nixpkgs.legacyPackages.${system}.nixfmt-rfc-style;
