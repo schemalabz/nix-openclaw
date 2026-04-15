@@ -30,6 +30,7 @@ in
     envFile = "/var/lib/opencouncil-tasks-previews/.env";
     previewDomain = "tasks.opencouncil.gr";
     cachix.enable = true;
+    createUser = false;  # shared user created by opencouncil-preview
   };
 
   # Ephemeral dev workspaces (NixOS containers)
