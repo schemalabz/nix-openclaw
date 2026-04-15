@@ -408,36 +408,142 @@ Skills are defined in `workspace/skills/{plan-task,execute-plan}/SKILL.md`.
 
 ## PR Preview Deployments
 
-The server hosts per-PR preview environments for both the main app and the tasks API. When a PR is opened against `main`, GitHub Actions builds it, pushes to Cachix, and deploys a preview instance on the server.
+The server hosts per-PR preview environments using a generic preview module (`generic-preview.nix`). Any project that can produce a Nix store path with a runnable app can plug in — no NixOS module knowledge needed in the app repo.
 
 ### How it works
 
 1. PR opened → GitHub Actions builds the Nix package and pushes to Cachix
-2. Action SSHs into the server and runs the preview-create script
+2. Action SSHs into the server and runs `sudo <name>-preview-create <PR_NUM> <STORE_PATH>`
 3. Caddy automatically provisions TLS and reverse-proxies to the instance
 4. PR comment is posted with the preview URL
-5. On PR close/merge, the preview is destroyed
+5. On PR close/merge, `sudo <name>-preview-destroy <PR_NUM>` cleans up
 
-### URLs
+### Current projects
 
-- **opencouncil** (main app): `https://pr-N.preview.opencouncil.gr` (base port 3000+N)
-- **opencouncil-tasks** (API): `https://pr-N.tasks.opencouncil.gr` (base port 4000+N)
+| Project | Domain | Base Port | Create flags |
+|---------|--------|-----------|--------------|
+| opencouncil | `pr-N.preview.opencouncil.gr` | 3000+N | `--with-db` (migration PRs) |
+| opencouncil-tasks | `pr-N.tasks.opencouncil.gr` | 4000+N | none |
 
 ### Management
 
 ```bash
 # List active previews
+opencouncil-preview-list
 opencouncil-tasks-preview-list
 
 # View logs for PR #123
-opencouncil-tasks-preview-logs 123
+opencouncil-preview-logs 123
 
 # Manual create/destroy
-sudo opencouncil-tasks-preview-create <PR_NUM> <NIX_STORE_PATH>
-sudo opencouncil-tasks-preview-destroy <PR_NUM>
+sudo opencouncil-preview-create <PR_NUM> <NIX_STORE_PATH> [--with-db]
+sudo opencouncil-preview-destroy <PR_NUM>
 ```
 
-The preview modules themselves are defined in the [opencouncil](https://github.com/schemalabz/opencouncil) and [opencouncil-tasks](https://github.com/schemalabz/opencouncil-tasks) repos and imported as flake inputs. This repo enables them and provides the host-level configuration (Caddy, ports, env files).
+### Adding a new project
+
+To add preview deployments for a new repo, you need four things:
+
+#### 1. A Nix build in your repo
+
+Your flake must produce a store path with everything needed to run the app:
+
+```nix
+# your-repo/flake.nix
+packages.x86_64-linux.my-app-prod = pkgs.buildNpmPackage { ... };
+```
+
+#### 2. A `preview` attrset in your flake outputs
+
+This tells the generic module how to start your app. At minimum:
+
+```nix
+# your-repo/flake.nix
+{
+  outputs = { self, nixpkgs, ... }: {
+    # ... packages, devShells, etc.
+
+    preview = {
+      name = "my-app";                          # → service names, script prefixes
+      domain = "preview.my-app.example.com";    # → pr-N.<domain>
+      defaultBasePort = 5000;                   # → port = 5000 + PR number
+
+      # How to start your app from the nix store path.
+      # The generic module handles everything else (service, caddy, create/destroy).
+      # Variables available: $PORT, $PR_NUM, $PR_DIR, $APP_DIR
+      mkStartScript = pkgs: { port, prNum, prDir, appDir, cfg }: ''
+        cd "$APP_DIR"
+        exec ${pkgs.nodejs}/bin/node dist/server.js
+      '';
+
+      # Optional: Cachix binary cache for faster deploys
+      cachix = {
+        defaultName = "my-cache";
+        defaultPublicKey = "my-cache.cachix.org-1:...";
+      };
+    };
+  };
+}
+```
+
+See `generic-preview.nix` for the full interface spec, including optional hooks:
+
+| Field | Purpose |
+|-------|---------|
+| `mkStartScript` | **(required)** Shell script to start the app |
+| `mkCreateHook` | Runs after symlink, before service start (e.g. DB setup) |
+| `mkDestroyHook` | Runs after service stop, before cleanup (e.g. stop DB) |
+| `mkCreateSummary` | Extra lines printed after "Preview created" |
+| `createExtraArgs` | Additional flags for the create script (e.g. `--with-db`) |
+| `extraOptions` | Additional NixOS options under `services.<name>-preview` |
+| `extraConfig` | Extra NixOS config (systemd services, sudo rules, etc.) |
+| `extraSudoCommands` | Additional sudo rules for the deploy user |
+| `extraPackages` | Extra packages added to system PATH |
+| `environment` | Systemd `Environment=` entries (default: `NODE_ENV=production`, `IS_PREVIEW=true`) |
+| `caddyBaseVirtualHost` | Whether to add a Caddy virtualHost for the base domain |
+
+#### 3. Wire it up in this repo
+
+Add your repo as a flake input and import the generic module:
+
+```nix
+# nix-openclaw/flake.nix
+inputs.my-app.url = "github:your-org/my-app/main";
+
+# In nixosConfigurations.preview.modules:
+(import ./generic-preview.nix my-app.preview)
+```
+
+Configure it in the host config:
+
+```nix
+# hosts/preview/configuration.nix
+services.my-app-preview = {
+  enable = true;
+  basePort = 5000;
+  envFile = "/var/lib/my-app-previews/.env";
+  cachix.enable = true;
+  createUser = false;  # if sharing the user with another preview module
+};
+```
+
+#### 4. CI workflow and DNS
+
+- **DNS**: Add a wildcard `*.preview.my-app.example.com` A record pointing to the server (`159.89.98.26`)
+- **CI**: Copy the workflow from opencouncil-tasks (`.github/workflows/preview-deploy.yml`) and adapt:
+  - Build your Nix package and push to Cachix
+  - SSH in and call `sudo my-app-preview-create $PR_NUM $STORE_PATH`
+  - On PR close: `sudo my-app-preview-destroy $PR_NUM`
+- **Env file**: Create `/var/lib/my-app-previews/.env` on the server with any runtime secrets
+
+#### What the generic module generates for you
+
+For each project, you get:
+- **Systemd template service** (`my-app-preview@<port>`) with security hardening
+- **4 management scripts**: `my-app-preview-create`, `my-app-preview-destroy`, `my-app-preview-list`, `my-app-preview-logs`
+- **Caddy reverse proxy** with auto-TLS for `pr-N.<domain>`
+- **System user/group**, Nix/Cachix settings, sudo rules, garbage collection
+- **Binary cache fetch**: the create script automatically fetches store paths from configured substituters
 
 ## Note on nixpkgs
 
