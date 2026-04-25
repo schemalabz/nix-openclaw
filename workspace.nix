@@ -145,7 +145,7 @@ let
 
     # Start container
     echo "==> Starting container $CONTAINER..."
-    nixos-container start "$CONTAINER"
+    sudo nixos-container start "$CONTAINER"
 
     echo ""
     echo "==> Workspace ready!"
@@ -235,7 +235,7 @@ let
 
     # Stop container
     echo "==> Stopping container $CONTAINER..."
-    nixos-container stop "$CONTAINER" 2>/dev/null || true
+    sudo nixos-container stop "$CONTAINER" 2>/dev/null || true
 
     # Clean up worktree from bare repo
     if [[ -n "$SESSION_ID" && -f "$SESSIONS_DIR/$SESSION_ID/session.json" ]]; then
@@ -517,7 +517,7 @@ let
     if $WAIT; then
       # Foreground mode — wait for completion, extract session info
       echo "==> Running (waiting for completion)..."
-      nixos-container run "$CONTAINER" -- \
+      sudo nixos-container run "$CONTAINER" -- \
         /run/current-system/sw/bin/bash -c "runuser -l dev -c '$INNER_SCRIPT'" \
         > "$LOG_FILE" 2>&1
       EXIT_CODE=$?
@@ -567,7 +567,7 @@ let
       fi
     else
       # Background mode — launch and return immediately
-      nixos-container run "$CONTAINER" -- \
+      sudo nixos-container run "$CONTAINER" -- \
         /run/current-system/sw/bin/bash -c "runuser -l dev -c '$INNER_SCRIPT'" \
         > "$LOG_FILE" 2>&1 &
       AGENT_PID=$!
@@ -1041,6 +1041,40 @@ in {
       workspaceSession
       workspaceRun
       workspaceStatus
+    ];
+
+    # Allow the workspace user to manage containers without a password
+    # Allow the workspace user to manage only workspace containers.
+    # Each slot gets explicit rules — no wildcards on nixos-container
+    # to avoid granting access to unrelated containers.
+    security.sudo.extraRules = mkIf (cfg.user != "root") [
+      {
+        users = [ cfg.user ];
+        commands = concatMap (n:
+          let name = containerName n; in [
+            {
+              command = "/run/current-system/sw/bin/nixos-container start ${name}";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "/run/current-system/sw/bin/nixos-container stop ${name}";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "/run/current-system/sw/bin/nixos-container run ${name} -- *";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "${pkgs.systemd}/bin/systemctl start container@${name}";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "${pkgs.systemd}/bin/systemctl stop container@${name}";
+              options = [ "NOPASSWD" ];
+            }
+          ]
+        ) slotNumbers;
+      }
     ];
   };
 }
