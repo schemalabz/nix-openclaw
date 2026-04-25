@@ -6,7 +6,7 @@ metadata:
   openclaw:
     emoji: "📋"
     requires:
-      bins: [workspace-create, workspace-run, workspace-status, workspace-destroy, workspace-list, gh]
+      bins: [workspace-create, workspace-continue, workspace-run, workspace-status, workspace-destroy, workspace-list, gh]
       env: [ANTHROPIC_API_KEY]
     os: ["linux"]
 ---
@@ -49,19 +49,10 @@ Every planning session MUST have a GitHub issue. Either one is provided, or you 
 
 ## Workspace Setup
 
-Find a free workspace slot and create the workspace:
+Get a workspace ready — use `workspace-continue` for previous work or `workspace-create` for new work (see TOOLS.md). If no free slots are available, show `workspace-list` output and suggest cleanup.
 
-1. Check available slots:
-   ```bash
-   workspace-list
-   ```
-2. If no free slots are available, show the current workspace list and suggest the user clean up an unused workspace. Do NOT proceed until a slot is free.
-3. Create the workspace:
-   ```bash
-   workspace-create --repo <name> --org <org> --github-user <user>
-   ```
-4. Post the slot number and SSH access info to the thread:
-   "🔧 Workspace ready on slot N. You can SSH in to inspect: `ssh -p 220N dev@159.89.98.26`"
+Post the slot number and SSH access info to the thread:
+"Workspace ready on slot N. SSH: `ssh -p 220N dev@159.89.98.26`"
 
 ## Run Planning Agent
 

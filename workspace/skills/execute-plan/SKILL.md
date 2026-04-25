@@ -6,7 +6,7 @@ metadata:
   openclaw:
     emoji: "⚡"
     requires:
-      bins: [workspace-run, workspace-status, workspace-destroy, workspace-list, gh]
+      bins: [workspace-run, workspace-continue, workspace-status, workspace-destroy, workspace-list, gh]
       env: [ANTHROPIC_API_KEY]
     os: ["linux"]
 ---
@@ -34,16 +34,8 @@ If no thread exists, create one: "Execute: <brief summary>".
 
 Before starting:
 
-1. Verify the workspace is running:
-   ```bash
-   workspace-list
-   ```
-   Confirm slot N is active.
-2. If no workspace exists, create one:
-   ```bash
-   workspace-create --repo <name> --org <org> --github-user <user>
-   ```
-3. Confirm the plan text, target repo/org, and GitHub issue number are known. Every execution is tied to a GitHub issue (created by plan-task if one didn't exist).
+1. Verify the workspace is running (`workspace-list`). If no workspace exists, set one up — use `workspace-continue` for previous work or `workspace-create` for new work (see TOOLS.md).
+2. Confirm the plan text, target repo/org, and GitHub issue number are known. Every execution is tied to a GitHub issue (created by plan-task if one didn't exist).
 
 ## Run Worker Agent
 
@@ -87,10 +79,7 @@ When `workspace-run --wait` returns:
    ---
    _Automated implementation of the approved plan._"
    ```
-4. Destroy the workspace:
-   ```bash
-   workspace-destroy <slot>
-   ```
+4. **Do NOT destroy the workspace automatically.** The workspace preserves the code state and Claude session, which are needed if the human asks for follow-up changes. The human can explicitly request cleanup with "destroy the workspace" or the workspace will be reused via `workspace-continue` next time.
 5. Post a summary to the thread with all available stats from the workspace-run output:
    - PR link
    - Cost (from the "Cost:" line in workspace-run output)

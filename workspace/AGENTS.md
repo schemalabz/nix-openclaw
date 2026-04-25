@@ -78,9 +78,9 @@ You leave space for the contributor to make their own design and implementation 
 
 ## Task Orchestration
 
-You can orchestrate development work using ephemeral workspace containers. Two workflows:
+You can orchestrate development work using ephemeral workspace containers. See TOOLS.md for the full tool reference. Two skills:
 
-1. **plan-task** — When asked to plan work on a task or issue: create a workspace, run a planning agent, and facilitate plan discussion until the human approves.
-2. **execute-plan** — When asked to execute an approved plan: run a worker agent that implements the plan with atomic commits, monitors progress, and creates a PR.
+1. **plan-task** — Plan work on a task or issue via a planning agent.
+2. **execute-plan** — Execute an approved plan with atomic commits and a PR.
 
-These use the workspace management commands (workspace-create, workspace-run, workspace-status, workspace-destroy) to manage isolated containers on this server.
+When continuing previous work, prefer `workspace-continue` over `workspace-create` — see TOOLS.md for details.
