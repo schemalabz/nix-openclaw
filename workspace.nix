@@ -851,6 +851,18 @@ in {
       '';
     };
 
+    user = mkOption {
+      type = types.str;
+      default = "root";
+      description = "User that owns workspace directories and manages workspaces.";
+    };
+
+    group = mkOption {
+      type = types.str;
+      default = "root";
+      description = "Group that owns workspace directories.";
+    };
+
     networkSubnet = mkOption {
       type = types.str;
       default = "10.233";
@@ -876,12 +888,12 @@ in {
   };
 
   config = mkIf cfg.enable {
-    # Ensure base directories exist
+    # Ensure base directories exist, owned by the configured user
     systemd.tmpfiles.rules = [
-      "d ${cfg.workspacesDir} 0755 root root -"
-      "d ${cfg.workspacesDir}/repos 0755 root root -"
-      "d ${cfg.sessionsDir} 0755 root root -"
-    ] ++ map (n: "d ${cfg.workspacesDir}/ws-${toString n} 0755 root root -") slotNumbers;
+      "d ${cfg.workspacesDir} 0755 ${cfg.user} ${cfg.group} -"
+      "d ${cfg.workspacesDir}/repos 0755 ${cfg.user} ${cfg.group} -"
+      "d ${cfg.sessionsDir} 0755 ${cfg.user} ${cfg.group} -"
+    ] ++ map (n: "d ${cfg.workspacesDir}/ws-${toString n} 0755 ${cfg.user} ${cfg.group} -") slotNumbers;
 
     # Enable IP forwarding for container networking
     boot.kernel.sysctl."net.ipv4.ip_forward" = "1";

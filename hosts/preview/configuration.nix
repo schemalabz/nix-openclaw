@@ -36,6 +36,8 @@ in
   services.dev-workspaces = {
     enable = true;
     slots = 4;
+    user = "openclaw";
+    group = "openclaw";
   };
 
   networking.nat.externalInterface = "ens3";
