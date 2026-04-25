@@ -83,8 +83,8 @@ let
 
     echo "==> Preparing workspace slot $SLOT..."
 
-    # Clean and prepare host directory
-    rm -rf "$WS_DIR"
+    # Clean workspace directory (needs sudo — files may be owned by container's UID 1000)
+    sudo workspace-clean-slot "$SLOT"
     mkdir -p "$WS_DIR/.ssh"
 
     # Fetch GitHub SSH keys
@@ -254,8 +254,8 @@ let
       fi
     fi
 
-    # Clean workspace directory
-    rm -rf "$WS_DIR"
+    # Clean workspace directory (needs sudo — files may be owned by container's UID 1000)
+    sudo workspace-clean-slot "$SLOT"
     echo "==> Cleaned workspace directory"
 
     echo ""
@@ -817,6 +817,182 @@ let
     fi
   '';
 
+  # Helper: clean a workspace slot directory (runs as root via sudo)
+  workspaceCleanSlot = pkgs.writeShellScriptBin "workspace-clean-slot" ''
+    set -euo pipefail
+    if [[ $# -ne 1 ]]; then
+      echo "Usage: workspace-clean-slot <slot>"
+      exit 1
+    fi
+    SLOT="$1"
+    if ! [[ "$SLOT" =~ ^[0-9]+$ ]] || [ "$SLOT" -lt 1 ] || [ "$SLOT" -gt ${toString cfg.slots} ]; then
+      echo "Error: Invalid slot number: $SLOT (must be 1-${toString cfg.slots})"
+      exit 1
+    fi
+    WS_DIR="${cfg.workspacesDir}/ws-$SLOT"
+    rm -rf "$WS_DIR"
+    mkdir -p "$WS_DIR"
+    chown ${cfg.user}:${cfg.group} "$WS_DIR"
+  '';
+
+  # Resume a previous workspace session instead of creating from scratch
+  workspaceContinue = pkgs.writeShellScriptBin "workspace-continue" ''
+    set -euo pipefail
+
+    SESSION=""
+    REPO=""
+    BRANCH=""
+
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --session) SESSION="$2"; shift 2 ;;
+        --repo) REPO="$2"; shift 2 ;;
+        --branch) BRANCH="$2"; shift 2 ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+      esac
+    done
+
+    SESSIONS_DIR="${cfg.sessionsDir}"
+    BASE_DIR="${cfg.workspacesDir}"
+
+    if [[ -z "$SESSION" && ( -z "$REPO" || -z "$BRANCH" ) ]]; then
+      echo "Usage: workspace-continue --session <session-id>"
+      echo "       workspace-continue --repo <name> --branch <branch>"
+      echo ""
+      echo "Resumes a previous workspace session. Reuses the existing workspace"
+      echo "if files are still present, or recreates from the branch if cleaned up."
+      echo "Outputs the previous Claude session ID for use with workspace-run --resume."
+      exit 1
+    fi
+
+    # Find the session
+    if [[ -n "$SESSION" ]]; then
+      SESSION_DIR="$SESSIONS_DIR/$SESSION"
+      if [[ ! -f "$SESSION_DIR/session.json" ]]; then
+        echo "Error: Session '$SESSION' not found"
+        exit 1
+      fi
+    else
+      # Find latest session matching repo+branch (dirs are sorted newest-first)
+      SESSION=""
+      for dir in $(ls -1dr "$SESSIONS_DIR"/*/ 2>/dev/null); do
+        S_REPO=$(${pkgs.jq}/bin/jq -r '.repo // empty' "$dir/session.json" 2>/dev/null || true)
+        S_BRANCH=$(${pkgs.jq}/bin/jq -r '.branch // empty' "$dir/session.json" 2>/dev/null || true)
+        if [[ "$S_REPO" == "$REPO" && "$S_BRANCH" == "$BRANCH" ]]; then
+          SESSION=$(basename "$dir")
+          SESSION_DIR="$dir"
+          break
+        fi
+      done
+
+      if [[ -z "$SESSION" ]]; then
+        echo "Error: No session found for $REPO on branch $BRANCH"
+        echo "Use workspace-sessions to list past sessions, or workspace-create for a new session."
+        exit 1
+      fi
+    fi
+
+    echo "==> Found session: $SESSION"
+
+    # Read session metadata
+    SLOT=$(${pkgs.jq}/bin/jq -r '.slot' "$SESSION_DIR/session.json")
+    ORG=$(${pkgs.jq}/bin/jq -r '.org // "schemalabz"' "$SESSION_DIR/session.json")
+    S_REPO=$(${pkgs.jq}/bin/jq -r '.repo' "$SESSION_DIR/session.json")
+    S_BRANCH=$(${pkgs.jq}/bin/jq -r '.branch' "$SESSION_DIR/session.json")
+    GITHUB_USER=$(${pkgs.jq}/bin/jq -r '.github_user // empty' "$SESSION_DIR/session.json")
+    CLAUDE_SESSION_ID=$(${pkgs.jq}/bin/jq -r '.active_run.claude_session_id // empty' "$SESSION_DIR/session.json")
+    WT_BRANCH=$(${pkgs.jq}/bin/jq -r '.worktree_branch // empty' "$SESSION_DIR/session.json")
+
+    CONTAINER="workspace-$SLOT"
+    WS_DIR="$BASE_DIR/ws-$SLOT"
+    SSH_PORT=$((${toString cfg.baseSSHPort} + SLOT))
+
+    # Check if slot is already in use by a different session
+    CURRENT_STATE=$(systemctl show -p ActiveState --value "container@$CONTAINER" 2>/dev/null || echo "inactive")
+    if [[ "$CURRENT_STATE" == "active" ]]; then
+      CURRENT_SESSION=$(cat "$WS_DIR/.session-id" 2>/dev/null || true)
+      if [[ "$CURRENT_SESSION" != "$SESSION" ]]; then
+        echo "Error: Slot $SLOT is in use by a different session ($CURRENT_SESSION)"
+        echo "Destroy it first with: workspace-destroy $SLOT"
+        exit 1
+      fi
+      echo "==> Container already running in slot $SLOT"
+    else
+      # Check if workspace files still exist
+      if [[ -d "$WS_DIR/repo" && -e "$WS_DIR/repo/.git" ]]; then
+        echo "==> Reusing existing workspace in slot $SLOT..."
+
+        # Fetch latest from remote
+        BARE_DIR="$BASE_DIR/repos/$ORG/$S_REPO.git"
+        if [[ -d "$BARE_DIR" ]]; then
+          echo "==> Fetching latest changes..."
+          ${pkgs.git}/bin/git -C "$BARE_DIR" fetch origin 2>&1 | sed 's/^/    /' || true
+        fi
+
+        # Start container
+        echo "==> Starting container $CONTAINER..."
+        sudo nixos-container start "$CONTAINER"
+      else
+        echo "==> Workspace files not found, recreating from branch $S_BRANCH..."
+
+        # Clean slot
+        sudo workspace-clean-slot "$SLOT"
+
+        # Set up SSH keys
+        mkdir -p "$WS_DIR/.ssh"
+        if [[ -n "$GITHUB_USER" ]]; then
+          echo "==> Fetching SSH keys for $GITHUB_USER..."
+          KEYS=$(${pkgs.curl}/bin/curl -sf "https://github.com/$GITHUB_USER.keys" || true)
+          if [[ -n "$KEYS" ]]; then
+            echo "$KEYS" > "$WS_DIR/.ssh/authorized_keys"
+            chmod 600 "$WS_DIR/.ssh/authorized_keys"
+          fi
+        fi
+
+        # Recreate worktree from branch
+        BARE_DIR="$BASE_DIR/repos/$ORG/$S_REPO.git"
+        if [[ ! -d "$BARE_DIR" ]]; then
+          echo "Error: Bare repo not found at $BARE_DIR — use workspace-create instead"
+          exit 1
+        fi
+
+        ${pkgs.git}/bin/git -C "$BARE_DIR" fetch origin 2>&1 | sed 's/^/    /'
+
+        # Reuse the worktree branch if it still exists, otherwise create from origin/branch
+        if [[ -n "$WT_BRANCH" ]] && ${pkgs.git}/bin/git -C "$BARE_DIR" rev-parse --verify "$WT_BRANCH" >/dev/null 2>&1; then
+          echo "==> Restoring worktree from branch $WT_BRANCH..."
+          ${pkgs.git}/bin/git -C "$BARE_DIR" worktree add "$WS_DIR/repo" "$WT_BRANCH" 2>&1 | sed 's/^/    /'
+        else
+          NEW_WT_BRANCH="ws-$SLOT-$(date -u +%Y%m%dT%H%M)"
+          echo "==> Creating new worktree from origin/$S_BRANCH..."
+          ${pkgs.git}/bin/git -C "$BARE_DIR" worktree add "$WS_DIR/repo" -b "$NEW_WT_BRANCH" "origin/$S_BRANCH" 2>&1 | sed 's/^/    /'
+        fi
+
+        # Restore session link
+        echo "$SESSION" > "$WS_DIR/.session-id"
+
+        # Start container
+        echo "==> Starting container $CONTAINER..."
+        sudo nixos-container start "$CONTAINER"
+      fi
+    fi
+
+    echo ""
+    echo "==> Workspace resumed!"
+    echo "    Slot:     $SLOT"
+    echo "    Session:  $SESSION"
+    echo "    Repo:     $ORG/$S_REPO (branch: $S_BRANCH)"
+    echo "    SSH:      ssh -p $SSH_PORT -o StrictHostKeyChecking=no dev@159.89.98.26"
+    if [[ -n "$CLAUDE_SESSION_ID" ]]; then
+      echo "    Claude:   $CLAUDE_SESSION_ID"
+      echo ""
+      echo "    Resume with: workspace-run --slot $SLOT --resume $CLAUDE_SESSION_ID --prompt '<task>'"
+    else
+      echo ""
+      echo "    Run with: workspace-run --slot $SLOT --prompt '<task>'"
+    fi
+  '';
+
 in {
   options.services.dev-workspaces = {
     enable = mkEnableOption "ephemeral dev workspaces via NixOS containers";
@@ -1041,6 +1217,7 @@ in {
     # Management scripts
     environment.systemPackages = [
       workspaceCreate
+      workspaceContinue
       workspaceDestroy
       workspaceList
       workspaceSsh
@@ -1048,6 +1225,7 @@ in {
       workspaceSession
       workspaceRun
       workspaceStatus
+      workspaceCleanSlot
     ];
 
     # Allow the workspace user to manage containers without a password
@@ -1057,7 +1235,12 @@ in {
     security.sudo.extraRules = mkIf (cfg.user != "root") [
       {
         users = [ cfg.user ];
-        commands = concatMap (n:
+        commands = [
+          {
+            command = "${workspaceCleanSlot}/bin/workspace-clean-slot *";
+            options = [ "NOPASSWD" ];
+          }
+        ] ++ concatMap (n:
           let name = containerName n; in [
             {
               command = "/run/current-system/sw/bin/nixos-container start ${name}";
