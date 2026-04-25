@@ -11,12 +11,27 @@ jobs:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
       - name: Deploy
         run: |
-          # nixos-rebuild exits non-zero if any unit fails, including
-          # pre-existing stale preview instances we don't control.
-          # We verify the deploy via the health endpoint instead.
+          # nixos-rebuild can exit non-zero if a unit fails during activation
+          # (e.g., stale preview instances). We capture the exit code and only
+          # tolerate unit-activation failures — build/OOM/SSH errors must fail
+          # the pipeline so they're not silently swallowed.
+          set +e
           ssh -o StrictHostKeyChecking=accept-new root@159.89.98.26 \
-            "nixos-rebuild switch --refresh --accept-flake-config --flake github:schemalabz/nix-openclaw#preview" \
-            || true
+            "nixos-rebuild switch --refresh --accept-flake-config --flake github:schemalabz/nix-openclaw#preview" 2>&1
+          RC=$?
+          set -e
+
+          if [ $RC -eq 0 ]; then
+            echo "Deploy succeeded"
+          elif [ $RC -eq 1 ]; then
+            # Exit code 1 from nixos-rebuild typically means a unit failed
+            # during activation (e.g., stale preview). The Verify step will
+            # confirm the core services are healthy.
+            echo "::warning::nixos-rebuild exited with code 1 (possible unit activation failure). Verify step will check health."
+          else
+            echo "::error::nixos-rebuild failed with exit code $RC (build error, OOM, or SSH failure)"
+            exit $RC
+          fi
       - name: Verify
         run: |
           # Restart health service in case it's stale from long uptime
