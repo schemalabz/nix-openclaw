@@ -9,6 +9,13 @@ You also have workspace management commands for orchestrating agent work:
 - `workspace-status --slot N [--full]` — check agent progress
 - `workspace-destroy <slot>` — archive session and destroy workspace
 
+You can review your own past conversation sessions:
+- `session-read --list` — list all sessions with source, channel, and message count
+- `session-read --latest [--tail N]` — read your most recent session
+- `session-read --channel <name> [--tail N]` — read a session by channel name (fuzzy match)
+- `session-read <uuid> [--tail N]` — read a specific session by ID
+- Add `--verbose` to see all tool results, not just errors
+
 ## Important Guidelines
 
 - **For any task that requires reading or modifying code**, use workspace commands. Do NOT use `sessions_spawn`, sub-agents, `web_fetch` on GitHub, or any other workaround to access codebases. The workspace containers are the only supported way to interact with code.

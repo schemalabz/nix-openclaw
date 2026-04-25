@@ -26,6 +26,15 @@ let
   # Workspace files tracked in this repo (read-only, symlinked into dataDir)
   workspaceSrc = workspaceDir;
 
+  # session-read — standalone tool for reading OpenClaw session logs.
+  # writeShellApplication wraps with proper bash from nixpkgs and adds
+  # runtime dependencies to PATH.
+  sessionRead = pkgs.writeShellApplication {
+    name = "session-read";
+    runtimeInputs = [ pkgs.jq pkgs.coreutils ];
+    text = builtins.readFile ./scripts/session-read.sh;
+  };
+
   # Generate openclaw.json from Nix attrset.
   # Runtime-mutable fields (wizard.*, meta.*) are NOT included here —
   # the ExecStartPre script merges them from the existing file on disk.
@@ -219,8 +228,10 @@ in {
 
     extraTools = mkOption {
       type = types.listOf types.package;
-      default = if cfg.githubApp.enable then [ cfg.githubApp._ghWrapper ] else [ pkgs.gh ];
-      defaultText = literalExpression "[ pkgs.gh ] (or gh wrapper when githubApp is enabled)";
+      default =
+        (if cfg.githubApp.enable then [ cfg.githubApp._ghWrapper ] else [ pkgs.gh ])
+        ++ [ sessionRead ];
+      defaultText = literalExpression "[ pkgs.gh session-read ] (or gh wrapper when githubApp is enabled)";
       description = "Extra packages to add to the gateway's PATH (e.g., gh, git).";
     };
 
