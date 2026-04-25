@@ -292,7 +292,9 @@ in {
         RestartSec = "5s";
 
         # Security hardening
-        NoNewPrivileges = true;
+        # Disabled when dev-workspaces is enabled — workspace scripts need
+        # sudo to manage NixOS containers, which requires privilege escalation.
+        NoNewPrivileges = !(config.services.dev-workspaces.enable or false);
         PrivateTmp = true;
         ProtectHome = true;
         ReadWritePaths = [ cfg.dataDir ];
