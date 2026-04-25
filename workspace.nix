@@ -449,12 +449,16 @@ let
       exit 1
     fi
 
-    cp "$ENV_FILE" "$WS_DIR/.env"
-    chown 1000:100 "$WS_DIR/.env"
-    chmod 600 "$WS_DIR/.env"
+    # Write env and prompt files via the container — after workspace-setup
+    # runs, the ws dir is owned by uid 1000 (dev), so the host user can't
+    # write there directly. Piping through nixos-container run uses the
+    # container's root to place the files.
+    cat "$ENV_FILE" | sudo nixos-container run "$CONTAINER" -- \
+      /run/current-system/sw/bin/bash -c "cat > '$WS_DIR/.env' && chown 1000:100 '$WS_DIR/.env' && chmod 600 '$WS_DIR/.env'"
 
     # Write prompt to a file (avoids quoting issues across shell boundaries)
-    echo "$PROMPT" > "$WS_DIR/.prompt.txt"
+    echo "$PROMPT" | sudo nixos-container run "$CONTAINER" -- \
+      /run/current-system/sw/bin/bash -c "cat > '$WS_DIR/.prompt.txt' && chown 1000:100 '$WS_DIR/.prompt.txt'"
 
     # Build claude command
     CLAUDE_ARGS="-p --verbose --output-format stream-json --dangerously-skip-permissions"
@@ -1008,8 +1012,11 @@ in {
                 # Symlink repo into dev home
                 ln -sfn ${ws}/repo /home/dev/repo
 
-                # Set ownership of workspace
+                # Set ownership of workspace.
+                # Keep group-writable so the host user (openclaw) can still
+                # write/delete files via the shared 'users' group (gid 100).
                 chown -R dev:users ${ws} 2>/dev/null || true
+                chmod -R g+w ${ws} 2>/dev/null || true
 
                 # Git safe.directory — worktree + bare repo may have mixed ownership
                 mkdir -p /home/dev/.config/git

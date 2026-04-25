@@ -262,6 +262,9 @@ in {
       home = cfg.dataDir;
       createHome = true;
       shell = pkgs.bash;
+      # Member of 'users' group (gid 100) so the agent can read/write
+      # workspace container dirs (owned by dev:users inside containers).
+      extraGroups = [ "users" ];
     };
 
     users.groups.${cfg.group} = mkIf (cfg.group == "openclaw") {};
