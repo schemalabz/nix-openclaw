@@ -121,4 +121,4 @@ Post the issue URL in the thread.
 - Keep titles concise and action-oriented (imperative mood)
 - The Concept section explains value, not implementation
 - User Stories reflect real user needs
-- Use `GH_TOKEN` env var for authentication (already set)
+- Use `gh` CLI for GitHub operations (authenticated via GitHub App token or GH_TOKEN env var)

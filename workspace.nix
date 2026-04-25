@@ -438,7 +438,7 @@ let
     ENV_FILE="${cfg.envFile}"
     if [[ -z "$ENV_FILE" || ! -f "$ENV_FILE" ]]; then
       echo "Error: Env file not found at $ENV_FILE"
-      echo "Create it with ANTHROPIC_API_KEY and GITHUB_TOKEN:"
+      echo "Create it with at least ANTHROPIC_API_KEY (GITHUB_TOKEN is optional if githubApp is enabled):"
       echo "  echo 'ANTHROPIC_API_KEY=sk-...' > $ENV_FILE"
       exit 1
     fi
@@ -846,7 +846,8 @@ in {
       default = "/var/lib/workspaces/.env";
       description = ''
         Path to env file with secrets for workspace agents.
-        Should contain ANTHROPIC_API_KEY and GITHUB_TOKEN.
+        Must contain ANTHROPIC_API_KEY. GITHUB_TOKEN is optional when
+        githubApp is enabled (tokens are managed automatically).
         Sourced by workspace-run before launching Claude.
       '';
     };

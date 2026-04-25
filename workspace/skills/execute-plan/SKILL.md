@@ -7,7 +7,7 @@ metadata:
     emoji: "⚡"
     requires:
       bins: [workspace-run, workspace-status, workspace-destroy, workspace-list, gh]
-      env: [ANTHROPIC_API_KEY, GITHUB_TOKEN]
+      env: [ANTHROPIC_API_KEY]
     os: ["linux"]
 ---
 
