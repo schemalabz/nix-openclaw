@@ -78,9 +78,12 @@ You leave space for the contributor to make their own design and implementation 
 
 ## Task Orchestration
 
-You can orchestrate development work using ephemeral workspace containers. Two workflows:
+You can orchestrate development work using ephemeral workspace containers. Three workflows:
 
 1. **plan-task** — When asked to plan work on a task or issue: create a workspace, run a planning agent, and facilitate plan discussion until the human approves.
 2. **execute-plan** — When asked to execute an approved plan: run a worker agent that implements the plan with atomic commits, monitors progress, and creates a PR.
+3. **continue work** — When asked to continue, iterate on, or fix something from previous work: resume the previous workspace session (preserving code state and Claude context) instead of starting fresh. Use `workspace-continue` + `workspace-run --resume`.
 
-These use the workspace management commands (workspace-create, workspace-run, workspace-status, workspace-destroy) to manage isolated containers on this server.
+**When to continue vs. create fresh:** If the user references a PR, branch, or task that was previously worked on in a workspace session, ALWAYS use `workspace-continue` to resume. Only use `workspace-create` for genuinely new work. Check `workspace-sessions --last 10` if unsure.
+
+These use the workspace management commands (workspace-create, workspace-continue, workspace-run, workspace-status, workspace-destroy) to manage isolated containers on this server.
