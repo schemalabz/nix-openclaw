@@ -19,8 +19,22 @@ jobs:
             || true
       - name: Verify
         run: |
-          sleep 3
-          HEALTH=$(curl -sf http://159.89.98.26:9101/health)
+          # Restart health service in case it's stale from long uptime
+          ssh root@159.89.98.26 "systemctl restart health" || true
+
+          # Retry health check — services may still be starting after switch
+          for i in 1 2 3 4 5; do
+            sleep 5
+            HEALTH=$(curl -sf --max-time 10 http://159.89.98.26:9101/health) && break
+            echo "Attempt $i: health endpoint not ready, retrying..."
+            HEALTH=""
+          done
+
+          if [ -z "$HEALTH" ]; then
+            echo "::error::Health endpoint unreachable after 5 attempts"
+            exit 1
+          fi
+
           echo "$HEALTH" | python3 -m json.tool
 
           DEPLOYED=$(echo "$HEALTH" | python3 -c "import json,sys; print(json.load(sys.stdin)['revision'])")
