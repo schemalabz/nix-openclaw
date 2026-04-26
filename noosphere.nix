@@ -33,7 +33,8 @@ let
       # Seed with initial content from Nix store
       if [ -d "${vaultSeed}" ]; then
         echo "==> Seeding vault from ${vaultSeed}"
-        ${pkgs.rsync}/bin/rsync -a --ignore-existing "${vaultSeed}/" "$VAULT/"
+        ${pkgs.rsync}/bin/rsync -a --ignore-existing --exclude='.git' "${vaultSeed}/" "$VAULT/"
+        chmod -R u+w "$VAULT"
       fi
 
       # Initialize git repo
@@ -47,7 +48,7 @@ let
     else
       # On subsequent deploys, seed new files without overwriting existing ones
       if [ -d "${vaultSeed}" ]; then
-        ${pkgs.rsync}/bin/rsync -a --ignore-existing "${vaultSeed}/" "$VAULT/"
+        ${pkgs.rsync}/bin/rsync -a --ignore-existing --exclude='.git' "${vaultSeed}/" "$VAULT/"
       fi
       echo "==> Vault already initialized at $VAULT"
     fi

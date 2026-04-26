@@ -42,6 +42,13 @@ in
 
   networking.nat.externalInterface = "ens3";
 
+  # Noosphere — shared knowledge vault for agents
+  services.noosphere = {
+    enable = true;
+    user = "openclaw";
+    group = "openclaw";
+  };
+
   # OpenClaw agent (Discord bot + future capabilities)
   services.openclaw-agent = {
     enable = true;

@@ -67,42 +67,80 @@ The knowledge base is an Obsidian-compatible vault — a directory of markdown f
 
 The vault is a **shared resource**. Multiple agents can plug into the same vault with different personas and capabilities — an engineering agent, a communications agent, a product agent — all reading from and writing to the same knowledge graph.
 
+A new vault starts almost flat:
+
 ```
 vault/
+  NOOSPHERE.md
   meta/
-    about.md                  # What this vault is (self-describing)
-  opencouncil/                # A sphere — emerged from project work
-    opencouncil.md            # Root note (MOC — map of content)
-    ideas.md                  # Product ideas, UX thoughts
-    thoughts.md               # Strategic musings, open questions
-    tasks/                    # Sub-sphere — expanded when tasks grew too big for one note
-      voiceprints.md
-      search.md
-  agentic-engineering/        # Another sphere — emerged from infrastructure work
-    agentic-engineering.md
-  contributors/               # Emerged when enough blobs about people accumulated
-    contributors.md
-  ...                         # New spheres emerge as the agent works
+    about.md
+  opencouncil.md              # A note about a project
+  noosphere.md                # A note about an area of thought
+  nous.md                     # A note about an entity
 ```
 
-### Spheres
+Over time, as notes accumulate and patterns emerge:
 
-A sphere is an area of thought. It starts as a single note and expands into a folder
-when it grows too big. This is the natural progression:
+```
+vault/
+  NOOSPHERE.md
+  meta/
+    about.md
+  projects/                   # Emerged when multiple project notes accumulated
+    projects.md               # Folder note — defines what a project is, frontmatter schema
+    opencouncil/              # Grew into its own sphere
+      opencouncil.md
+      ideas.md
+      tasks/
+    nix-openclaw.md
+  noosphere.md                # Still a single note — hasn't needed a folder yet
+  nous.md
+```
+
+### How knowledge grows
 
 1. A **blob** gets written to an existing note (or starts a new one)
 2. A **note** accumulates blobs — it's a page about one topic
-3. When a note grows too large, it becomes a **folder note** — the note becomes the
-   folder's root (MOC), and sub-topics get their own notes
-4. That folder is now a **sphere** — a living area of thought
+3. When notes of a similar kind accumulate, they naturally group into a **folder**.
+   The folder note describes what kind of thing lives here.
+4. When a note grows too large, it becomes a **folder note** itself — sub-topics
+   get their own notes. That folder is now a **sphere**.
+
+### Spheres
 
 Spheres are not predefined categories. Don't start with `issues/`, `reviews/`, `people/`.
-Start with notes. Let folders emerge when notes outgrow themselves. The agent's vault
-should grow organically, the same way a human's Obsidian vault grows.
+Start with notes. Let folders emerge when notes outgrow themselves. The vault should
+grow organically, the same way a human's Obsidian vault grows.
 
 A sphere's root note serves as its **map of content** (MOC) — a summary and index.
 Its description helps classify new blobs: when new information arrives, compare it
-against existing root notes to decide where it belongs.
+against existing sphere root notes to decide where it belongs.
+
+### Taxonomy emerges from the vault
+
+There is no predefined taxonomy. When you notice several notes are the same kind of
+thing (projects, people, decisions), group them into a folder.
+
+The **folder note** defines the taxonomy entry. `projects/projects.md` explains
+what a project is and what frontmatter project notes should have. `people/people.md`
+explains what a person note looks like. The taxonomy is the vault's own folder
+structure — living, self-describing, and growing.
+
+Each folder type can define its own **frontmatter schema**. For example:
+
+```markdown
+# projects/projects.md
+
+Things we're building. Each project note should have:
+
+---
+github: <repo URL>
+website: <project URL>
+---
+```
+
+This means the vault teaches itself — and any agent reading the folder notes
+learns what kinds of notes exist and how to create new ones correctly.
 
 ### Folder Notes
 
