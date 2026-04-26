@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: Execute an approved implementation plan in a workspace container
-version: 1.0.0
+version: 2.0.0
 metadata:
   openclaw:
     emoji: "⚡"
@@ -13,33 +13,24 @@ metadata:
 
 # Execute Plan
 
-You take an approved implementation plan and execute it in an ephemeral workspace container. A worker agent implements the plan with atomic commits, you monitor progress and post updates, and a PR is created when done.
-
-## Critical Rules
-
-- **ONLY use workspace commands** (`workspace-run`, `workspace-status`, etc.) to execute plans. NEVER fall back to `sessions_spawn`, sub-agents, or direct code editing. If a workspace command fails, check `workspace-status` and retry after a short wait. Only report the error to the human if it fails persistently (3+ retries).
-- **NEVER include text in your responses.** Your text output gets posted as messages in the Discord channel. To avoid cluttering the channel, respond ONLY with tool calls — no text at all. Use the `message` tool to communicate with the human in the thread. For example, instead of writing "Let me check the results...", call the `message` tool to send the update to the thread. If thread creation fails, retry with a shorter name.
-- **Always use the workspace infrastructure** even if you think you could solve it faster another way. The workspace containers provide isolation, git history, and reproducibility.
+Execute an approved implementation plan with atomic commits and a PR.
 
 ## Trigger
 
-This skill activates in two ways:
+- **Chained from plan-task:** After a plan is approved, execution starts using the existing workspace.
+- **Direct:** Human says "execute this plan on slot N: <plan text>".
 
-- **Chained from plan-task:** After a plan is approved, the bot starts execution automatically using the existing workspace.
-- **Invoked directly:** A human says "execute this plan on slot N: <plan text>".
+## Workflow
 
-If no thread exists, create one: "Execute: <brief summary>".
+### 1. Create thread (if none exists)
 
-## Validate Prerequisites
+Name it "Execute: <brief summary>". All conversation in the thread.
 
-Before starting:
+### 2. Verify workspace
 
-1. Verify the workspace is running (`workspace-list`). If no workspace exists, set one up — use `workspace-continue` for previous work or `workspace-create` for new work (see TOOLS.md).
-2. Confirm the plan text, target repo/org, and GitHub issue number are known. Every execution is tied to a GitHub issue (created by plan-task if one didn't exist).
+Check `workspace-list`. If no workspace, set one up — `workspace-continue` for previous work, `workspace-create` for new. See TOOLS.md.
 
-## Run Worker Agent
-
-Launch the worker agent:
+### 3. Run worker agent
 
 ```bash
 workspace-run --slot N --wait --max-turns 60 --prompt "You are a worker agent. Implement the following approved plan precisely.
@@ -57,17 +48,17 @@ PLAN:
 <approved plan text>"
 ```
 
-Post to thread: "Worker started on slot N. This may take a while. SSH access: `ssh -p 220N dev@159.89.98.26`"
+Post to thread: "Worker started on slot N. SSH: `ssh -p 220N dev@159.89.98.26`"
 
-The `--wait` flag blocks until the agent finishes. Do NOT run `workspace-status` or any other commands while waiting — just wait for the output. When `workspace-run` returns, the output contains the result text, Claude session ID, cost, turns, and duration.
+`--wait` blocks until done. Don't poll while waiting.
 
-## Completion
+### 4. Completion
 
 When `workspace-run --wait` returns:
 
-1. Parse the output for a PR URL (look for `github.com/.../pull/` in the result text).
-2. Post the PR link and run stats (cost, turns, duration) to the Discord thread.
-3. Post a completion comment on the GitHub issue:
+1. Parse output for PR URL.
+2. Post PR link and run stats (cost, turns, duration) to thread.
+3. Comment on the GitHub issue:
    ```bash
    gh issue comment <number> --repo <org/repo> --body "## Implementation Complete
 
@@ -79,29 +70,17 @@ When `workspace-run --wait` returns:
    ---
    _Automated implementation of the approved plan._"
    ```
-4. **Do NOT destroy the workspace automatically.** The workspace preserves the code state and Claude session, which are needed if the human asks for follow-up changes. The human can explicitly request cleanup with "destroy the workspace" or the workspace will be reused via `workspace-continue` next time.
-5. Post a summary to the thread with all available stats from the workspace-run output:
-   - PR link
-   - Cost (from the "Cost:" line in workspace-run output)
-   - Turns used
-   - Duration
-   - Number of commits
+4. Do NOT destroy the workspace. Preserve state for follow-up work.
+5. Post summary to thread: PR link, cost, turns, duration, commit count.
 
-## Human Intervention
+### 5. Human intervention
 
-- **"pause" or "stop":** Kill the worker process, keep the workspace alive, inform the human.
-- **"resume":** Re-run workspace-run in the same workspace (fresh worker session).
-- **"destroy":** Destroy the workspace and post a summary:
-  ```bash
-  workspace-destroy <slot>
-  ```
-- **SSH access:** The human can SSH in at any time:
-  ```
-  ssh -p 220N dev@159.89.98.26
-  ```
+- **"pause" / "stop":** Kill the worker, keep workspace alive.
+- **"resume":** Re-run `workspace-run` in the same workspace.
+- **"destroy":** Destroy workspace, post summary.
+- **SSH access:** `ssh -p 220N dev@159.89.98.26`
 
-## Error Handling
+## Error handling
 
-- **Worker fails:** Post the error from workspace-status log, offer to retry or provide SSH access for manual debugging.
-- **Tests fail:** Post the test output to the thread, ask the human how to proceed (fix and retry, or create PR as-is with a note).
-- **No progress for 10+ minutes:** Alert the human in the thread, offer to abort the worker.
+- **Worker fails:** Post error from log, offer retry or SSH access.
+- **Tests fail:** Post output, ask how to proceed.
