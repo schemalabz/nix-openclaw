@@ -59,7 +59,10 @@ in
     controlUiOrigins = [ "https://nous.opencouncil.gr" ];
     # Disable heartbeats to save tokens when idle
     extraConfig = {
-      agents.defaults.heartbeat.every = "0m";
+      agents.defaults = {
+        model = "anthropic/claude-sonnet-4-6";
+        heartbeat.every = "0m";
+      };
     };
     # GitHub App for repository access (auto-refreshing tokens, no PAT needed)
     githubApp = {
