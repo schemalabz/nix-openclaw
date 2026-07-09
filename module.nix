@@ -61,6 +61,19 @@ let
     gateway = {
       port = cfg.gatewayPort;
       mode = "local";
+      # Token auth: the team authenticates with one shared token (OPENCLAW_GATEWAY_TOKEN
+      # in the env file, not git). trustedProxies lets the gateway log the real client IP
+      # behind Caddy (which reaches it over ::1/127.0.0.1) instead of the loopback address.
+      # trusted-proxy auth can't be used here: Caddy is same-host, and the gateway refuses
+      # to trust a loopback proxy source (trusted_proxy_loopback_source) — that needs the
+      # proxy on a separate machine with its own IP.
+      trustedProxies = [ "127.0.0.1" "::1" ];
+    } // optionalAttrs (cfg.controlUiOrigins != [ ]) {
+      # Browser origins allowed to reach the Control UI / WebChat over the WS API.
+      # The gateway's default allowlist is bind-host only, so when the UI is served
+      # through a reverse proxy on another host (nous.opencouncil.gr) it rejects the
+      # proxied origin with WS close code 4008 ("connect failed") — this allows it.
+      controlUi.allowedOrigins = cfg.controlUiOrigins;
     };
     messages = {
       ackReactionScope = "group-mentions";
@@ -218,8 +231,15 @@ in {
 
     gatewayPort = mkOption {
       type = types.int;
-      default = 3400;
-      description = "Port for the OpenClaw gateway HTTP/WebSocket API (localhost only).";
+      default = 8400;
+      description = "Port for the OpenClaw gateway HTTP/WebSocket API (localhost only). Kept outside the 3000-4999 range used by opencouncil/tasks PR previews to avoid collisions.";
+    };
+
+    controlUiOrigins = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      example = [ "https://nous.opencouncil.gr" ];
+      description = "Extra browser origins allowed to reach the Control UI / WebChat WebSocket API. Set when the gateway UI is exposed through a reverse proxy on a different host; otherwise the gateway rejects the proxied origin (WS close code 4008).";
     };
 
     maxConcurrent = mkOption {
@@ -309,6 +329,7 @@ in {
         ];
         WorkingDirectory = cfg.dataDir;
         ExecStartPre = "+${setupScript}";
+        # Auth mode (password) comes from gateway.auth in the config file, not a flag.
         ExecStart = "${openclaw-gateway}/bin/openclaw gateway --port ${toString cfg.gatewayPort}";
         Restart = "on-failure";
         RestartSec = "5s";
