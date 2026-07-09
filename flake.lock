@@ -269,11 +269,11 @@
         "nixpkgs-unstable": "nixpkgs-unstable_2"
       },
       "locked": {
-        "lastModified": 1771255309,
-        "narHash": "sha256-ko+SO9ns9IHAdwfhYgWBqyez8yjA6o0Eo3JNFZX3uhA=",
+        "lastModified": 1783518800,
+        "narHash": "sha256-CFefhny+Iqx10ZtQ3IyvKmJ+SjvVLAKwR1Sq/zqoadA=",
         "owner": "schemalabz",
         "repo": "opencouncil-tasks",
-        "rev": "56e95c238e7193a3553a82ffa1da7fde243e075c",
+        "rev": "15ea99b8de90efab03ec127fbcfa6685e7b419dd",
         "type": "github"
       },
       "original": {
