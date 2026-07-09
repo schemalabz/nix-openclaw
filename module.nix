@@ -98,21 +98,29 @@ let
     mkdir -p "$DATA_DIR/workspace/skills"
     mkdir -p "$DATA_DIR/docs/reference/templates"
 
-    # Symlink read-only workspace files from Nix store.
-    # These are the files the gateway reads but does not modify.
+    # Copy workspace files from Nix store (not symlink — the gateway's
+    # symlink-escape security check rejects symlinks resolving to /nix/store/).
+    # Remove old symlinks first to avoid "same file" errors.
     for f in "${workspaceSrc}"/*.md; do
       name="$(basename "$f")"
-      ln -sfn "$f" "$DATA_DIR/workspace/$name"
+      [ -L "$DATA_DIR/workspace/$name" ] && rm -f "$DATA_DIR/workspace/$name"
+      cp -f "$f" "$DATA_DIR/workspace/$name"
     done
 
-    # Symlink skills directories
+    # Copy skills into workspace (not symlink — the gateway's symlink-escape
+    # security check rejects symlinks that resolve outside the workspace root,
+    # which includes anything in /nix/store/)
     if [ -d "${workspaceSrc}/skills" ]; then
       for skill_dir in "${workspaceSrc}/skills"/*/; do
         if [ -d "$skill_dir" ]; then
           skill_name="$(basename "$skill_dir")"
           mkdir -p "$DATA_DIR/workspace/skills/$skill_name"
           for f in "$skill_dir"*; do
-            [ -f "$f" ] && ln -sfn "$f" "$DATA_DIR/workspace/skills/$skill_name/$(basename "$f")"
+            if [ -f "$f" ]; then
+              target="$DATA_DIR/workspace/skills/$skill_name/$(basename "$f")"
+              [ -L "$target" ] && rm -f "$target"
+              cp -f "$f" "$target"
+            fi
           done
         fi
       done
