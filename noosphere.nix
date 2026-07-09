@@ -25,6 +25,11 @@ let
 
     VAULT="''${1:-${cfg.vaultDir}}"
 
+    # Seed files rsynced from the read-only Nix store arrive read-only; make sure the
+    # vault (owned by us) is writable before git/rsync touch it.
+    mkdir -p "$VAULT"
+    chmod -R u+w "$VAULT" 2>/dev/null || true
+
     # First-time initialization
     if [ ! -d "$VAULT/.git" ]; then
       echo "==> Initializing noosphere vault at $VAULT"
@@ -52,6 +57,10 @@ let
       fi
       echo "==> Vault already initialized at $VAULT"
     fi
+
+    # rsync -a re-applies the read-only perms of the Nix-store seed onto the vault
+    # dirs every run; make the vault writable again so agents can add/update notes.
+    chmod -R u+w "$VAULT"
 
     echo ""
     echo "==> Contents:"
@@ -121,6 +130,10 @@ in {
     # Ensure vault directory exists
     systemd.tmpfiles.rules = [
       "d ${cfg.vaultDir} 0755 ${cfg.user} ${cfg.group} -"
+      # Recursively fix ownership so the whole vault belongs to the vault user. Seeds
+      # rsynced from the read-only Nix store (and past root-run inits) can leave
+      # root-owned entries, which makes git report "dubious ownership" and blocks init.
+      "Z ${cfg.vaultDir} - ${cfg.user} ${cfg.group} -"
     ];
 
     # Initialize vault on boot (before agents start)
@@ -132,7 +145,11 @@ in {
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        ExecStart = "+${initVault}/bin/noosphere-init";
+        # Run as the vault owner, not root: git refuses "dubious ownership" when the repo
+        # is owned by ${cfg.user} but the process runs as root. Matches noosphere-backup.
+        User = cfg.user;
+        Group = cfg.group;
+        ExecStart = "${initVault}/bin/noosphere-init";
       };
     };
 
