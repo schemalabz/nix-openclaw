@@ -1237,7 +1237,7 @@ in {
         users = [ cfg.user ];
         commands = [
           {
-            command = "${workspaceCleanSlot}/bin/workspace-clean-slot *";
+            command = "/run/current-system/sw/bin/workspace-clean-slot *";
             options = [ "NOPASSWD" ];
           }
         ] ++ concatMap (n:
