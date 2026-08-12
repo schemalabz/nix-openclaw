@@ -131,6 +131,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-playwright": {
+      "locked": {
+        "lastModified": 1767313136,
+        "narHash": "sha256-16KkgfdYqjaeRGBaYsNrhPRRENs0qzkQVUooNHtoy2w=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "ac62194c3917d5f474c1a844b6fd6da2db95077d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-25.05",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "nixpkgs-unstable": {
       "locked": {
         "lastModified": 1771207753,
@@ -243,6 +259,22 @@
         "type": "github"
       }
     },
+    "nixpkgs_7": {
+      "locked": {
+        "lastModified": 1771848320,
+        "narHash": "sha256-0MAd+0mun3K/Ns8JATeHT1sX28faLII5hVLq0L3BdZU=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "2fc6539b481e1d2569f25f8799236694180c0993",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "opencouncil": {
       "inputs": {
         "nixpkgs": "nixpkgs_5",
@@ -289,7 +321,8 @@
         "nix-openclaw": "nix-openclaw",
         "nixpkgs": "nixpkgs_4",
         "opencouncil": "opencouncil",
-        "opencouncil-tasks": "opencouncil-tasks"
+        "opencouncil-tasks": "opencouncil-tasks",
+        "toolkit": "toolkit"
       }
     },
     "systems": {
@@ -319,6 +352,26 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "toolkit": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_7",
+        "nixpkgs-playwright": "nixpkgs-playwright"
+      },
+      "locked": {
+        "lastModified": 1786546168,
+        "narHash": "sha256-qagxdfJfNSeKPlaro35ZrUIM0o6sSW48jXqYmHRVWfw=",
+        "owner": "schemalabz",
+        "repo": "toolkit",
+        "rev": "aaf133d31e60f64abc1394d77ba7786e3492f017",
+        "type": "github"
+      },
+      "original": {
+        "owner": "schemalabz",
+        "ref": "v2026.8.1",
+        "repo": "toolkit",
         "type": "github"
       }
     }

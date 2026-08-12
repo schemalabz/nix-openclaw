@@ -4,6 +4,10 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
 
+    # Web-access tools (page-read + playwright-run), shared with the team's
+    # local Claude Code setup via the browser-scripting skill.
+    toolkit.url = "github:schemalabz/toolkit/v2026.8.1";
+
     # Upstream OpenClaw — provides the gateway binary.
     # Do NOT use follows for nixpkgs — their pin must match their binary cache.
     nix-openclaw.url = "github:openclaw/nix-openclaw";
@@ -16,7 +20,7 @@
     opencouncil-tasks.url = "github:schemalabz/opencouncil-tasks/main";
   };
 
-  outputs = { self, nixpkgs, nix-openclaw, claude-code-nix, opencouncil, opencouncil-tasks }:
+  outputs = { self, nixpkgs, toolkit, nix-openclaw, claude-code-nix, opencouncil, opencouncil-tasks }:
   let
     system = "x86_64-linux";
   in {
@@ -36,6 +40,11 @@
     packages.${system} = let pkgs = nixpkgs.legacyPackages.${system}; in {
       # Re-export the gateway package for direct use
       openclaw-gateway = nix-openclaw.packages.${system}.openclaw-gateway;
+
+      # Web-access tools — re-exported from schemalabz/toolkit, which is where
+      # they now live. Consumers who want ONLY these should depend on toolkit
+      # directly rather than on this flake.
+      inherit (toolkit.packages.${system}) playwright-run page-read;
 
       # Noosphere CLI — initialize a vault anywhere
       # Usage: nix run .#noosphere-init -- <path>
@@ -80,6 +89,9 @@
     # --- Host deployments ---
     nixosConfigurations.preview = nixpkgs.lib.nixosSystem {
       inherit system;
+      # Expose the flake's own packages (page-read, playwright-run, …) to the
+      # host config so it can add them to the agent's tools.
+      specialArgs = { inherit self; };
       modules = [
         { system.configurationRevision = self.rev or self.dirtyRev or "unknown"; }
         (nixpkgs + "/nixos/modules/virtualisation/digital-ocean-config.nix")

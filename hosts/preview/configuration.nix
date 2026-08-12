@@ -4,7 +4,7 @@
 # openclaw-agent) are imported from the flake — this file only holds
 # host-level settings and per-service knobs.
 
-{ pkgs, ... }:
+{ pkgs, self, ... }:
 
 let
   healthPort = 9101;
@@ -54,6 +54,12 @@ in
     enable = true;
     dataDir = "/var/lib/opencouncil-discord-bot";
     envFile = "/var/lib/opencouncil-discord-bot/.env";
+    # Web-access CLIs for the agent (see the browser-scripting skill): read a
+    # page as clean markdown (page-read) or drive a real browser (playwright-run).
+    extraTools = [
+      self.packages.${pkgs.system}.page-read
+      self.packages.${pkgs.system}.playwright-run
+    ];
     # The Control UI is served through Caddy at this origin; allow it past the
     # gateway's CSRF origin check (default allowlist is bind-host/localhost only).
     controlUiOrigins = [ "https://nous.opencouncil.gr" ];
