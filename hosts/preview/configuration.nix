@@ -39,6 +39,12 @@ in
         opencouncil-tasks.previews.opencouncil-tasks
         { envFile = "/var/lib/opencouncil-tasks-previews/.env"; }
       ];
+      notis = lib.mkMerge [
+        opencouncil.previews.notis
+        # Preview-grade secrets only (dummy ANTHROPIC_API_KEY boots the app
+        # and fails on actual agent calls — per the pr-previews trust model).
+        { envFile = "/var/lib/notis-previews/.env"; }
+      ];
     };
   };
 
@@ -112,6 +118,12 @@ in
     extra-substituters = [ "https://cache.garnix.io" ];
     extra-trusted-public-keys = [ "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g=" ];
   };
+
+  # Disk-pressure guards (50GB disk filled 2026-08-21: accumulated system
+  # generations + 4GB journal starved previews of space).
+  services.journald.extraConfig = "SystemMaxUse=500M";
+  nix.gc.options = "--delete-older-than 14d";
+  boot.loader.grub.configurationLimit = 10;
 
   # 4GB swap file — the VPS only has 3.8GB RAM, and from-source builds of
   # openclaw-gateway (CUDA deps) need more. This lets `nix flake update`
