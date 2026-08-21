@@ -30,7 +30,7 @@ in
         {
           envFile = "/var/lib/opencouncil-previews/.env";
           settings.tasksPreview = {
-            domain = "tasks.opencouncil.gr";
+            domain = "tasks.opencouncil.dev";
             envFile = "/var/lib/opencouncil-tasks-previews/.env";
           };
         }
