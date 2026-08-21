@@ -2,6 +2,12 @@ name: Deploy
 on:
   push:
     branches: [main]
+# Serialize deploys: two pushes in quick succession must apply in order —
+# without this, a slower earlier run can switch the server AFTER a newer
+# one, reverting it (observed 2026-08-21).
+concurrency:
+  group: deploy-preview-host
+  cancel-in-progress: false
 jobs:
   deploy:
     runs-on: ubuntu-latest
