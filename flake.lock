@@ -261,6 +261,22 @@
     },
     "nixpkgs_7": {
       "locked": {
+        "lastModified": 1751274312,
+        "narHash": "sha256-/bVBlRpECLVzjV19t5KMdMFWSwKLtb5RyXdjz3LJT+g=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "50ab793786d9de88ee30ec4e4c24fb4236fc2674",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-24.11",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_8": {
+      "locked": {
         "lastModified": 1771848320,
         "narHash": "sha256-0MAd+0mun3K/Ns8JATeHT1sX28faLII5hVLq0L3BdZU=",
         "owner": "NixOS",
@@ -281,11 +297,11 @@
         "nixpkgs-unstable": "nixpkgs-unstable"
       },
       "locked": {
-        "lastModified": 1776159074,
-        "narHash": "sha256-SlX5vFpxNi5LiSKiTvqh50JjbY3vV8Jp3tt/dlsMix0=",
+        "lastModified": 1787237252,
+        "narHash": "sha256-XWkAWjjuAi+dWDNWrdnwF9AQvYnx++vQPx1JWgB1/Pg=",
         "owner": "schemalabz",
         "repo": "opencouncil",
-        "rev": "0ac66668f60cc5a3967fe27de73f7be2c461e086",
+        "rev": "12e2468170d4627969cbf01b3a7d34234a8c5b0a",
         "type": "github"
       },
       "original": {
@@ -301,17 +317,35 @@
         "nixpkgs-unstable": "nixpkgs-unstable_2"
       },
       "locked": {
-        "lastModified": 1783518800,
-        "narHash": "sha256-CFefhny+Iqx10ZtQ3IyvKmJ+SjvVLAKwR1Sq/zqoadA=",
+        "lastModified": 1787237256,
+        "narHash": "sha256-PJ57+UkEljMYeQXIvuzIXbo+5no+5CQRrprpQa+Z+0g=",
         "owner": "schemalabz",
         "repo": "opencouncil-tasks",
-        "rev": "15ea99b8de90efab03ec127fbcfa6685e7b419dd",
+        "rev": "ade4dd37a719eb095e34f3fa2efd2e8f0c5e7925",
         "type": "github"
       },
       "original": {
         "owner": "schemalabz",
         "ref": "main",
         "repo": "opencouncil-tasks",
+        "type": "github"
+      }
+    },
+    "pr-previews": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_7"
+      },
+      "locked": {
+        "lastModified": 1787233470,
+        "narHash": "sha256-hn7PyY36+4KJx+U3PZol42Hvgxa5HdjRLaDPwZq5S8Q=",
+        "owner": "schemalabz",
+        "repo": "pr-previews",
+        "rev": "1697188d68102958e7e56b078b32102a7bdb60ff",
+        "type": "github"
+      },
+      "original": {
+        "owner": "schemalabz",
+        "repo": "pr-previews",
         "type": "github"
       }
     },
@@ -322,6 +356,7 @@
         "nixpkgs": "nixpkgs_4",
         "opencouncil": "opencouncil",
         "opencouncil-tasks": "opencouncil-tasks",
+        "pr-previews": "pr-previews",
         "toolkit": "toolkit"
       }
     },
@@ -357,7 +392,7 @@
     },
     "toolkit": {
       "inputs": {
-        "nixpkgs": "nixpkgs_7",
+        "nixpkgs": "nixpkgs_8",
         "nixpkgs-playwright": "nixpkgs-playwright"
       },
       "locked": {

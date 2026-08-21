@@ -4,7 +4,7 @@
 # openclaw-agent) are imported from the flake — this file only holds
 # host-level settings and per-service knobs.
 
-{ pkgs, self, ... }:
+{ lib, pkgs, self, opencouncil, opencouncil-tasks, ... }:
 
 let
   healthPort = 9101;
@@ -12,24 +12,34 @@ in
 {
   networking.hostName = "opencouncil-preview";
 
-  services.opencouncil-preview = {
+  # PR previews for both projects via the generic pr-previews module.
+  # Project definitions (start scripts, hooks, DB lifecycle) live in the app
+  # flakes' `previews` exports; this block only pins host-level knobs.
+  # user/group/dirs deliberately match the pre-extraction setup so existing
+  # preview instances and per-PR DB clusters keep working.
+  services.pr-previews = {
     enable = true;
-    basePort = 3000;
-    envFile = "/var/lib/opencouncil-previews/.env";
-    cachix.enable = true;
-    tasksPreview = {
-      domain = "tasks.opencouncil.gr";
-      envFile = "/var/lib/opencouncil-tasks-previews/.env";
+    user = "opencouncil";
+    group = "opencouncil";
+    # Continuity: the CI deploy key lives in this home's .ssh/authorized_keys
+    # (sshd resolves it relative to the user's home).
+    homeDir = "/var/lib/opencouncil-previews";
+    projects = {
+      opencouncil = lib.mkMerge [
+        opencouncil.previews.opencouncil
+        {
+          envFile = "/var/lib/opencouncil-previews/.env";
+          settings.tasksPreview = {
+            domain = "tasks.opencouncil.gr";
+            envFile = "/var/lib/opencouncil-tasks-previews/.env";
+          };
+        }
+      ];
+      opencouncil-tasks = lib.mkMerge [
+        opencouncil-tasks.previews.opencouncil-tasks
+        { envFile = "/var/lib/opencouncil-tasks-previews/.env"; }
+      ];
     };
-  };
-
-  # OpenCouncil Tasks API previews (port 4000+N)
-  services.opencouncil-tasks-preview = {
-    enable = true;
-    basePort = 4000;
-    envFile = "/var/lib/opencouncil-tasks-previews/.env";
-    previewDomain = "tasks.opencouncil.gr";
-    cachix.enable = true;
   };
 
   # Ephemeral dev workspaces (NixOS containers)

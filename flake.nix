@@ -18,9 +18,12 @@
     # Other services sharing this server
     opencouncil.url = "github:schemalabz/opencouncil/main";
     opencouncil-tasks.url = "github:schemalabz/opencouncil-tasks/main";
+
+    # Generic PR-preview module (extracted from this repo).
+    pr-previews.url = "github:schemalabz/pr-previews";
   };
 
-  outputs = { self, nixpkgs, toolkit, nix-openclaw, claude-code-nix, opencouncil, opencouncil-tasks }:
+  outputs = { self, nixpkgs, toolkit, nix-openclaw, claude-code-nix, opencouncil, opencouncil-tasks, pr-previews }:
   let
     system = "x86_64-linux";
   in {
@@ -91,18 +94,23 @@
       inherit system;
       # Expose the flake's own packages (page-read, playwright-run, …) to the
       # host config so it can add them to the agent's tools.
-      specialArgs = { inherit self; };
+      specialArgs = { inherit self opencouncil opencouncil-tasks; };
       modules = [
         { system.configurationRevision = self.rev or self.dirtyRev or "unknown"; }
         (nixpkgs + "/nixos/modules/virtualisation/digital-ocean-config.nix")
-        opencouncil.nixosModules.opencouncil-preview
-        opencouncil-tasks.nixosModules.opencouncil-tasks-preview
+        pr-previews.nixosModules.default
         self.nixosModules.default
         self.nixosModules.dev-workspaces
         self.nixosModules.noosphere
         ./hosts/preview/configuration.nix
       ];
     };
+
+    # Evaluation check: the full preview host must build a toplevel.
+    # Catches type errors, missing options, and broken references without
+    # server access. Run: nix flake check
+    checks.${system}.preview-host =
+      self.nixosConfigurations.preview.config.system.build.toplevel;
 
     # Formatter for `nix fmt`
     formatter.${system} = nixpkgs.legacyPackages.${system}.nixfmt-rfc-style;

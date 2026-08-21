@@ -437,7 +437,7 @@ sudo opencouncil-tasks-preview-create <PR_NUM> <NIX_STORE_PATH>
 sudo opencouncil-tasks-preview-destroy <PR_NUM>
 ```
 
-The preview modules themselves are defined in the [opencouncil](https://github.com/schemalabz/opencouncil) and [opencouncil-tasks](https://github.com/schemalabz/opencouncil-tasks) repos and imported as flake inputs. This repo enables them and provides the host-level configuration (Caddy, ports, env files).
+The preview infrastructure is the generic [pr-previews](https://github.com/schemalabz/pr-previews) NixOS module. App-specific config (start scripts, DB lifecycle hooks) lives in each app repo's flake as a `previews` export; this repo's host config merges those exports into `services.pr-previews.projects` and pins host-level knobs (user, env files, tasks-preview linking). To add preview deployments for a new project, see the pr-previews README ("Adding a project").
 
 ## Note on nixpkgs
 
