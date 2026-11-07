@@ -336,11 +336,11 @@
         "nixpkgs": "nixpkgs_7"
       },
       "locked": {
-        "lastModified": 1793436724,
-        "narHash": "sha256-6c2FwQz6TrHvpNDTED83oMhNYYCNAGchemYmnJnsjTQ=",
+        "lastModified": 1794068474,
+        "narHash": "sha256-mksFkGToojpLXLlsWTiunBOs1PMFbIkqhTz0QHlZmWc=",
         "owner": "schemalabz",
         "repo": "pr-previews",
-        "rev": "b2a43ef2f4b2d1abc0d6410ca01011a64e6f2457",
+        "rev": "cbe84e0833b0f1b9b7600ce57b22a91f4d491b4e",
         "type": "github"
       },
       "original": {
